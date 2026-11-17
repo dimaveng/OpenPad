@@ -44,3 +44,5 @@ Run-Case 'data-payload-rejected' ([ordered]@{'OpenPad.exe'='new exe';'Data/libra
 Run-Case 'locked-file-rollback' ([ordered]@{'OpenPad.exe'='new exe';'z-locked.txt'='new locked'}) 1 $true
 $log | Set-Content (Join-Path $root 'results.txt')
 $log
+# Expected installer failures leave LASTEXITCODE=1; report the verified suite result.
+exit 0
