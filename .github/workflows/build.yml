@@ -1,0 +1,39 @@
+name: Windows build
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Restore locked dependencies
+        run: dotnet restore OpenPad.csproj --locked-mode --configfile NuGet.Config
+      - name: Build application
+        run: dotnet publish OpenPad.csproj -c Release --no-restore -o artifacts/app
+      - name: Audio smoke test
+        shell: pwsh
+        run: |
+          $p = Start-Process ./artifacts/app/OpenPad.exe -ArgumentList '--self-test' -Wait -PassThru
+          Get-Content self-test.txt
+          if ($p.ExitCode -ne 0) { throw 'Audio smoke test failed' }
+      - name: Build installer
+        shell: powershell
+        run: ./Installer/Build.ps1
+      - name: Collect installer and source
+        shell: pwsh
+        run: |
+          Copy-Item ../OpenPad-Setup.exe artifacts/OpenPad-Setup.exe
+          git archive --format=zip --output=artifacts/OpenPad-source.zip HEAD
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OpenPad-Windows
+          path: |
+            artifacts/OpenPad-Setup.exe
+            artifacts/OpenPad-source.zip

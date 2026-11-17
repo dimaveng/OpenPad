@@ -1,0 +1,17 @@
+bin/
+obj/
+.vs/
+.idea/
+Data/
+**/Data/
+verification/
+artifacts/
+*.user
+*.suo
+*.pdb
+*.log
+self-test.txt
+ui-test.txt
+*.zip
+*.exe
+*.dll
