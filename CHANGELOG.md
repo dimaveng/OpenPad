@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0
+
+- Portable .opl packages: embedded audio, ordered clip list, settings, SHA-256 validation and exact duplicate detection.
+- Asynchronous import/export with rollback, bounded package sizes and strict archive path validation.
+- Multiple selection in both views, select visible clips, bulk library removal and undo for the last removal.
+- Audio source files are preserved when removing library entries.
+- Package round-trip/malformed-input tests and selection/undo UI checks; audio engine unchanged.
+
 ## 0.3.0
 
 - Dark window chrome, scrollbars, sliders and level meters.

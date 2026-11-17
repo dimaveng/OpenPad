@@ -43,11 +43,26 @@ internal static class UiSmoke
                 if(saved.ViewMode!="list")throw new Exception("View preference not saved");
                 window.Close();
                 var restored=new MainWindow();
+                restored.Show();
                 if(restored.Rows.Visibility!=Visibility.Visible || restored.Rows.Children.Count!=18)throw new Exception("View preference not restored");
                 restored.TileMode.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 if(restored.Tiles.Children.Count!=18)throw new Exception("Tiles restore failed");
+                restored.SelectionModeButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                ((Button)restored.Tiles.Children[0]).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                ((Button)restored.Tiles.Children[1]).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                if(restored.SelectionCount.Text!="Выбрано: 2")throw new Exception("Multi selection failed");
+                restored.ListMode.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                if(restored.SelectionCount.Text!="Выбрано: 2")throw new Exception("Selection lost on view change");
+                restored.DeleteSelectionButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                if(restored.Rows.Children.Count!=16)throw new Exception("Bulk removal failed");
+                restored.UndoRemovalButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                if(restored.Rows.Children.Count!=18)throw new Exception("Bulk undo failed");
+                restored.Search.Text="07"; restored.SelectVisibleForTest();
+                if(restored.SelectionCount.Text!="Выбрано: 1")throw new Exception("Filtered selection failed");
+                restored.Search.Text="";
+                Capture(restored,Path.Combine(output,"selection.png"));
                 restored.Close();
-                File.WriteAllText(Path.Combine(output,"ui-test.txt"),"PASS: tiles/list switching, list search, save/reload, scrolling, 1240x820 and 1020x720 renders.");
+                File.WriteAllText(Path.Combine(output,"ui-test.txt"),"PASS: tiles/list switching, search, save/reload, scrolling, multi selection, view persistence, bulk removal and undo, filtered selection, renders.");
                 app.Shutdown(0);
             }
             catch(Exception ex) { File.WriteAllText(Path.Combine(output,"ui-test.txt"),ex.ToString()); window.Close(); app.Shutdown(1); }

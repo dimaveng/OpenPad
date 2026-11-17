@@ -46,6 +46,10 @@ The application interface is currently in Russian.
 
 Clip gain does not affect voice gain. Distortion processes the combined output. Stop All only stops clips.
 
+## OPL packages and multiple selection
+
+Import .opl adds a collection with embedded audio. Export includes the whole library or selected clips. Click «Выбрать звуки» (Select clips) or Ctrl+click to select multiple items; «Все видимые» (Select visible) respects search and favorites. «Убрать» removes library entries while keeping audio files. Undo restores the last removal until the app closes. See the [OPL format and limits](docs/OPL.md).
+
 ## Library and data
 
 Settings live in `Data/library.json` next to the application. Audio files are not copied; the library stores their original paths. To migrate, close OpenPad and copy `Data` to the new installation, keeping the audio files accessible.

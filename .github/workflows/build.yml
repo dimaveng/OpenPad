@@ -30,6 +30,12 @@ jobs:
           $p = Start-Process ./artifacts/app/OpenPad.exe -ArgumentList '--self-test' -Wait -PassThru
           Get-Content self-test.txt
           if ($p.ExitCode -ne 0) { throw 'Audio smoke test failed' }
+      - name: OPL package smoke test
+        shell: pwsh
+        run: |
+          $p = Start-Process ./artifacts/app/OpenPad.exe -ArgumentList '--opl-test' -Wait -PassThru
+          Get-Content opl-test.txt
+          if ($p.ExitCode -ne 0) { throw 'OPL smoke test failed' }
       - name: Build installer
         shell: powershell
         run: ./Installer/Build.ps1

@@ -52,7 +52,7 @@ public partial class MainWindow : Window
    Loaded+=(_,_)=>Dispatcher.BeginInvoke(new Action(()=> { var bitmap=new System.Windows.Media.Imaging.RenderTargetBitmap((int)ActualWidth,(int)ActualHeight,96,96,PixelFormats.Pbgra32); bitmap.Render(this); var encoder=new System.Windows.Media.Imaging.PngBitmapEncoder(); encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap)); using(var file=File.Create(capture))encoder.Save(file); Close(); }),DispatcherPriority.ApplicationIdle);
   SourceInitialized+=(_,_)=> { handle=new WindowInteropHelper(this).Handle; HwndSource.FromHwnd(handle).AddHook(Hook); int failed=0; for(int i=0;i<10;i++) if(!RegisterHotKey(handle,100+i,0x4003,(uint)(0x30+i))) failed++; if(failed>0) Status.Text=$"Не удалось занять горячие клавиши: {failed}. Возможно, они используются другой программой."; };
   timer.Tick+=(_,_)=> { Level.Value=engine.Peak; MicLevel.Value=engine.MicPeak; }; timer.Start();
-  Closing+=(_,_)=> { Save(); timer.Stop(); engine.Dispose(); for(int i=0;i<10;i++) UnregisterHotKey(handle,100+i); };
+  Closing+=(_,e)=> { if(packageBusy) { e.Cancel=true; return; } Save(); timer.Stop(); engine.Dispose(); for(int i=0;i<10;i++) UnregisterHotKey(handle,100+i); };
  }
  string StatePath=>System.IO.Path.Combine(dataDir,"library.json");
  void MinimizeWindow(object sender,RoutedEventArgs e)=>SystemCommands.MinimizeWindow(this);
@@ -64,12 +64,12 @@ public partial class MainWindow : Window
  {
   if(msg==0x0312) { int n=wp.ToInt32()-100; if(n==0) StopAll(this,new()); else if(n<=prefs.Clips.Count) Play(prefs.Clips[n-1]); handled=true; } return IntPtr.Zero;
  }
- void Save()
+ bool Save()
  {
-  if(!ready)return;
+  if(!ready)return false;
   prefs.Master=Master.Value; prefs.VoiceGain=VoiceGain.Value; prefs.Distortion=Distort.IsChecked==true;
   prefs.Output=(Output.SelectedItem as Device)?.Name; prefs.Monitor=(Monitor.SelectedItem as Device)?.Name; prefs.Microphone=(Microphone.SelectedItem as Device)?.Name; prefs.Voice=MicEnabled.IsChecked==true;
-  try { var temp=StatePath+".tmp"; File.WriteAllText(temp,JsonSerializer.Serialize(prefs,new JsonSerializerOptions { WriteIndented=true })); File.Move(temp,StatePath,true); } catch(Exception ex) { Status.Text="Не удалось сохранить: "+ex.Message; }
+  try { var temp=StatePath+".tmp"; File.WriteAllText(temp,JsonSerializer.Serialize(prefs,new JsonSerializerOptions { WriteIndented=true })); File.Move(temp,StatePath,true); return true; } catch(Exception ex) { Status.Text="Не удалось сохранить: "+ex.Message; return false; }
  }
  void FillDevices()
  {
@@ -120,12 +120,16 @@ public partial class MainWindow : Window
  void StopAll(object sender,RoutedEventArgs e) { engine.Stop(); Status.Text="Все звуки остановлены"; }
  void Import(object sender,RoutedEventArgs e)
  {
-  var dialog=new OpenFileDialog { Multiselect=true, Filter="Аудиофайлы|*.wav;*.mp3;*.ogg;*.opus;*.aiff;*.wma;*.m4a;*.aac|Ogg Vorbis / Opus|*.ogg;*.opus|Все файлы|*.*" }; if(dialog.ShowDialog()==true) AddFiles(dialog.FileNames);
+  var dialog=new OpenFileDialog { Multiselect=true, Filter="Аудио и OpenPad|*.opl;*.wav;*.mp3;*.ogg;*.opus;*.aiff;*.wma;*.m4a;*.aac|Ogg Vorbis / Opus|*.ogg;*.opus|Все файлы|*.*" }; if(dialog.ShowDialog()==true) AddFiles(dialog.FileNames);
  }
  void FilesDropped(object sender,DragEventArgs e) { if(e.Data.GetData(DataFormats.FileDrop) is string[] files) AddFiles(files); }
- void AddFiles(IEnumerable<string> files)
+ async void AddFiles(IEnumerable<string> files)
  {
-  var errors=new List<string>(); int added=0,failed=0; foreach(var file in files)
+  var paths=files.ToList();
+  foreach(var path in paths.Where(p=>System.IO.Path.GetExtension(p).Equals(".opl",StringComparison.OrdinalIgnoreCase)))await ImportPackageAsync(path);
+  var audio=paths.Where(p=>!System.IO.Path.GetExtension(p).Equals(".opl",StringComparison.OrdinalIgnoreCase)).ToList();
+  if(audio.Count==0)return;
+  var errors=new List<string>(); int added=0,failed=0; foreach(var file in audio)
   {
    if(prefs.Clips.Any(c=>string.Equals(c.Path,file,StringComparison.OrdinalIgnoreCase)))continue;
    try { using var probe=AudioDecoder.Open(file); if(probe.WaveFormat.Channels>2)throw new NotSupportedException(); prefs.Clips.Add(new Clip { Path=file,Name=System.IO.Path.GetFileNameWithoutExtension(file) }); added++; } catch(Exception ex) { failed++; errors.Add(System.IO.Path.GetFileName(file)+": "+ex.Message); }
@@ -142,12 +146,13 @@ public partial class MainWindow : Window
   Tiles.Visibility=list?Visibility.Collapsed:Visibility.Visible; Rows.Visibility=list?Visibility.Visible:Visibility.Collapsed;
   TileMode.Background=list?new SolidColorBrush(Color.FromRgb(38,41,39)):(Brush)FindResource("Accent"); TileMode.Foreground=list?Brushes.White:Brushes.Black;
   ListMode.Background=list?(Brush)FindResource("Accent"):new SolidColorBrush(Color.FromRgb(38,41,39)); ListMode.Foreground=list?Brushes.Black:Brushes.White;
-  foreach(var c in prefs.Clips.Where(c=>(!favorites||c.Favorite)&&c.Name.Contains(Search.Text,StringComparison.OrdinalIgnoreCase)))
+  UpdateSelectionBar();
+  foreach(var c in VisibleClips())
   {
    var panel=new StackPanel();
    int index=prefs.Clips.IndexOf(c)+1;
    var top=new Grid { Margin=new Thickness(0,0,0,24) };
-   top.Children.Add(new TextBlock { Text="▶",Foreground=(Brush)FindResource("Accent"),FontSize=20 });
+   top.Children.Add(new TextBlock { Text=selectionMode?(marked.Contains(c)?"☑":"☐"):"▶",Foreground=(Brush)FindResource("Accent"),FontSize=20 });
    top.Children.Add(new TextBlock { Text=index.ToString("00"),Foreground=(Brush)FindResource("Accent"),FontSize=17,HorizontalAlignment=HorizontalAlignment.Right }); panel.Children.Add(top);
    panel.Children.Add(new TextBlock { Text=c.Name,FontSize=16,FontWeight=FontWeights.SemiBold,TextTrimming=TextTrimming.CharacterEllipsis,ToolTip=c.Path });
    panel.Children.Add(new TextBlock { Text=(c.Favorite?"★  ":"")+System.IO.Path.GetExtension(c.Path).TrimStart('.').ToUpperInvariant(),Foreground=Brushes.DarkGray,FontSize=11,Margin=new Thickness(0,8,0,0) });
@@ -155,17 +160,18 @@ public partial class MainWindow : Window
    if(list)
    {
     var row=new Grid(); row.ColumnDefinitions.Add(new ColumnDefinition { Width=new GridLength(32) }); row.ColumnDefinitions.Add(new ColumnDefinition { Width=new GridLength(1,GridUnitType.Star) }); row.ColumnDefinitions.Add(new ColumnDefinition { Width=new GridLength(46) }); row.ColumnDefinitions.Add(new ColumnDefinition { Width=new GridLength(98) });
-    row.Children.Add(new TextBlock { Text="▶",Foreground=(Brush)FindResource("Accent"),VerticalAlignment=VerticalAlignment.Center });
+    row.Children.Add(new TextBlock { Text=selectionMode?(marked.Contains(c)?"☑":"☐"):"▶",Foreground=(Brush)FindResource("Accent"),VerticalAlignment=VerticalAlignment.Center });
     var name=new TextBlock { Text=(c.Favorite?"★  ":"")+c.Name,TextTrimming=TextTrimming.CharacterEllipsis,FontWeight=FontWeights.SemiBold,VerticalAlignment=VerticalAlignment.Center,ToolTip=c.Name }; Grid.SetColumn(name,1); row.Children.Add(name);
     var format=new TextBlock { Text=System.IO.Path.GetExtension(c.Path).TrimStart('.').ToUpperInvariant(),FontSize=11,Foreground=Brushes.DarkGray,VerticalAlignment=VerticalAlignment.Center }; Grid.SetColumn(format,2); row.Children.Add(format);
     var hotkey=new TextBlock { Text=index<=9?$"Ctrl+Alt+{index}":"—",FontSize=11,Foreground=Brushes.DarkGray,HorizontalAlignment=HorizontalAlignment.Right,VerticalAlignment=VerticalAlignment.Center }; Grid.SetColumn(hotkey,3); row.Children.Add(hotkey); content=row;
    }
-   var button=new Button { Content=content,Width=list?double.NaN:208,Height=list?58:158,Margin=list?new Thickness(0,0,10,8):new Thickness(0,0,12,12),Padding=new Thickness(16),HorizontalContentAlignment=HorizontalAlignment.Stretch,ToolTip="Нажми для запуска. Правой кнопкой — настройки клипа." }; button.Click+=(_,_)=>Play(c);
-   System.Windows.Automation.AutomationProperties.SetName(button,"Воспроизвести "+c.Name);
+   var button=new Button { Content=content,Width=list?double.NaN:208,Height=list?58:158,Margin=list?new Thickness(0,0,10,8):new Thickness(0,0,12,12),Padding=new Thickness(16),HorizontalContentAlignment=HorizontalAlignment.Stretch,ToolTip=selectionMode?"Выбрать / снять выбор":"Нажми для запуска. Ctrl+клик — выбрать. Правой кнопкой — настройки клипа." }; button.Click+=(_,_)=>ActivateClip(c);
+   if(marked.Contains(c))button.Background=new SolidColorBrush(Color.FromRgb(52,68,38));
+   System.Windows.Automation.AutomationProperties.SetName(button,(selectionMode?"Выбрать ":"Воспроизвести ")+c.Name);
    var menu=new ContextMenu();
    var edit=new MenuItem { Header="Настроить эффекты" }; edit.Click+=(_,_)=>Select(c); menu.Items.Add(edit);
    var fav=new MenuItem { Header=c.Favorite?"Убрать из избранного":"В избранное" }; fav.Click+=(_,_)=> { c.Favorite=!c.Favorite; Save(); Render(); }; menu.Items.Add(fav);
-   var remove=new MenuItem { Header="Убрать из библиотеки" }; remove.Click+=(_,_)=> { prefs.Clips.Remove(c); if(selected==c)selected=null; Save(); Render(); }; menu.Items.Add(remove); button.ContextMenu=menu; if(list)Rows.Children.Add(button); else Tiles.Children.Add(button);
+   var remove=new MenuItem { Header="Убрать из библиотеки" }; remove.Click+=(_,_)=>RemoveClips(new HashSet<Clip>{c}); menu.Items.Add(remove); button.ContextMenu=menu; if(list)Rows.Children.Add(button); else Tiles.Children.Add(button);
   }
   EmptyLabel.Visibility=Tiles.Children.Count+Rows.Children.Count==0?Visibility.Visible:Visibility.Collapsed;
  }
