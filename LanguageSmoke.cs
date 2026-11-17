@@ -51,11 +51,11 @@ internal static class LanguageSmoke
                     window=new MainWindow {Width=1020,Height=720}; window.Show(); window.UpdateLayout();
                     string detected=L10n.Detect(culture);
                     if(L10n.Current!=detected || window.LanguagePicker.SelectedIndex!=(detected=="uk"?0:detected=="en"?1:2))throw new Exception("First-start detection failed: "+culture);
-                    if(window.TileMode.Content?.ToString()!=L10n.T("Плитки"))throw new Exception("XAML resources not applied");
+                    if(window.TileMode.ToolTip?.ToString()!=L10n.T("Плитки"))throw new Exception("XAML resources not applied");
                     foreach(var language in new[]{"uk","en","ru"})
                     {
                         window.LanguagePicker.SelectedIndex=language=="uk"?0:language=="en"?1:2; window.UpdateLayout();
-                        if(L10n.Current!=language || window.TileMode.Content?.ToString()!=L10n.T("Плитки"))throw new Exception("Live switch failed");
+                        if(L10n.Current!=language || window.TileMode.ToolTip?.ToString()!=L10n.T("Плитки"))throw new Exception("Live switch failed");
                         if(window.Master.Value!=175 || window.VoiceGain.Value!=85)throw new Exception("Language change modified gain");
                         var saved=JsonSerializer.Deserialize<Preferences>(File.ReadAllText(Path.Combine(data,"library.json")))!;
                         if(saved.Language!=language || saved.Clips[0].Name!=clip.Name || saved.Clips[0].Path!=clip.Path || saved.Clips[0].Gain!=375 || !saved.Clips[0].Favorite)throw new Exception("Locale migration changed library");

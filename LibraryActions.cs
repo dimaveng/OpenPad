@@ -52,7 +52,7 @@ public partial class MainWindow
     }
     void UpdateSelectionBar()
     {
-        marked.RemoveWhere(c=>!prefs.Clips.Contains(c));
+        marked.RemoveWhere(c=>!prefs.Clips.Contains(c)); SelectionToolbar.Visibility=selectionMode?Visibility.Visible:Visibility.Collapsed; if(selected==null)SelectedFormat.Text="";
         SelectionModeButton.Content=selectionMode?L10n.T("Завершить"):L10n.T("Выбрать звуки");
         SelectionCount.Text=L10n.F("Выбрано: {0}",marked.Count);
         DeleteSelectionButton.IsEnabled=marked.Count>0;

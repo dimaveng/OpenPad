@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.0
+
+- Implement the approved charcoal/cyan WPF redesign using a shared theme dictionary.
+- Flat library rows, quieter tiles, selected-clip inspector and contextual bulk-selection controls.
+- Persistent bottom routing panel for Discord, microphone, monitoring and Stop All; separate voice gain retained.
+- Keep all three languages, OPL import/export, favorites, hotkeys, effects and undo.
+- Auto-select the first clip for inspection without playback; synchronize the preset label with the bass slider.
+- Extend UI checks with actual silent WAV playback, saved gain/bass controls and minimum-size routing layout.
+- Audio engine and decoder unchanged.
+
 ## 0.5.0
 
 - Ukrainian, English and Russian application UI, messages, dialogs and tooltips.

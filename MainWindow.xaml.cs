@@ -45,10 +45,10 @@ public partial class MainWindow : Window
  [DllImport("user32.dll")] static extern bool UnregisterHotKey(IntPtr hwnd,int id);
  public MainWindow()
  {
-  InitializeComponent(); Title="OpenPad "+VersionInfo.Current; VersionLabel.Text="OpenPad / "+VersionInfo.Current; Directory.CreateDirectory(dataDir);
+  InitializeComponent(); Title="OpenPad "+VersionInfo.Current; VersionLabel.Text=VersionInfo.Current; Directory.CreateDirectory(dataDir);
   try { if(File.Exists(StatePath)) prefs=JsonSerializer.Deserialize<Preferences>(File.ReadAllText(StatePath)) ?? new(); } catch { Status.Text=L10n.T("Не удалось прочитать настройки. Создана новая библиотека."); }
   ApplyLanguage(); Master.Value=prefs.Master; VoiceGain.Value=prefs.VoiceGain; Distort.IsChecked=prefs.Distortion; SharedGain=(float)Master.Value/100;
-  Preset.SelectedIndex=0; FillDevices(); ready=true; Render(); Configure(); SettingsChanged(this,new());
+  Preset.SelectedIndex=0; FillDevices(); ready=true; Render(); Configure(); SettingsChanged(this,new()); if(prefs.Clips.FirstOrDefault() is Clip initial)Select(initial);
   if(Environment.GetEnvironmentVariable("SOUNDPAD_CAPTURE") is string capture)
    Loaded+=(_,_)=>Dispatcher.BeginInvoke(new Action(()=> { var bitmap=new System.Windows.Media.Imaging.RenderTargetBitmap((int)ActualWidth,(int)ActualHeight,96,96,PixelFormats.Pbgra32); bitmap.Render(this); var encoder=new System.Windows.Media.Imaging.PngBitmapEncoder(); encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap)); using(var file=File.Create(capture))encoder.Save(file); Close(); }),DispatcherPriority.ApplicationIdle);
   SourceInitialized+=(_,_)=> { handle=new WindowInteropHelper(this).Handle; HwndSource.FromHwnd(handle).AddHook(Hook); int failed=0; for(int i=0;i<10;i++) if(!RegisterHotKey(handle,100+i,0x4003,(uint)(0x30+i))) failed++; if(failed>0) Status.Text=L10n.F("Не удалось занять горячие клавиши: {0}. Возможно, они используются другой программой.",failed); };
@@ -106,12 +106,13 @@ public partial class MainWindow : Window
  {
   if(!ready || updating)return;
   ClipLabel.Text=L10n.F("Громкость клипа · {0:0}%",ClipGain.Value); BassLabel.Text=$"Bass Boost · {Bass.Value:0} dB";
+  updating=true; Preset.SelectedIndex=Array.IndexOf(new double[]{0,6,12,20},Bass.Value); updating=false;
   if(selected!=null) { selected.Gain=(float)ClipGain.Value; selected.Bass=(float)Bass.Value; selected.Effects=Effects.IsChecked==true; Save(); }
  }
  void PresetChanged(object sender,SelectionChangedEventArgs e) { if(!ready||updating)return; Bass.Value=new double[]{0,6,12,20}[Math.Max(0,Preset.SelectedIndex)]; }
  void Select(Clip c)
  {
-  selected=c; updating=true; SelectedLabel.Text=c.Name; ClipGain.Value=c.Gain; Bass.Value=c.Bass; Effects.IsChecked=c.Effects; updating=false; ClipChanged(this,new());
+  selected=c; updating=true; SelectedLabel.Text=c.Name; ClipGain.Value=c.Gain; Bass.Value=c.Bass; Effects.IsChecked=c.Effects; Preset.SelectedIndex=Array.IndexOf(new float[]{0,6,12,20},c.Bass); SelectedFormat.Text=System.IO.Path.GetExtension(c.Path).TrimStart('.').ToUpperInvariant(); updating=false; ClipChanged(this,new()); Render();
  }
  void Play(Clip c)
  {
@@ -145,9 +146,9 @@ public partial class MainWindow : Window
   Tiles.Children.Clear(); Rows.Children.Clear(); CountLabel.Text=prefs.Clips.Count.ToString();
   bool list=prefs.ViewMode=="list";
   Tiles.Visibility=list?Visibility.Collapsed:Visibility.Visible; Rows.Visibility=list?Visibility.Visible:Visibility.Collapsed;
-  TileMode.Background=list?new SolidColorBrush(Color.FromRgb(38,41,39)):(Brush)FindResource("Accent"); TileMode.Foreground=list?Brushes.White:Brushes.Black;
-  ListMode.Background=list?(Brush)FindResource("Accent"):new SolidColorBrush(Color.FromRgb(38,41,39)); ListMode.Foreground=list?Brushes.Black:Brushes.White;
-  UpdateSelectionBar();
+  TileMode.Background=list?Brushes.Transparent:new SolidColorBrush(Color.FromRgb(36,51,61)); TileMode.Foreground=list?new SolidColorBrush(Color.FromRgb(132,153,167)):(Brush)FindResource("Accent");
+  ListMode.Background=list?new SolidColorBrush(Color.FromRgb(36,51,61)):Brushes.Transparent; ListMode.Foreground=list?(Brush)FindResource("Accent"):new SolidColorBrush(Color.FromRgb(132,153,167));
+  AllButton.Background=!favorites?new SolidColorBrush(Color.FromRgb(36,51,59)):Brushes.Transparent; FavoritesButton.Background=favorites?new SolidColorBrush(Color.FromRgb(36,51,59)):Brushes.Transparent; ClipGain.IsEnabled=Bass.IsEnabled=Preset.IsEnabled=Effects.IsEnabled=selected!=null; UpdateSelectionBar();
   foreach(var c in VisibleClips())
   {
    var panel=new StackPanel();
@@ -155,19 +156,19 @@ public partial class MainWindow : Window
    var top=new Grid { Margin=new Thickness(0,0,0,24) };
    top.Children.Add(new TextBlock { Text=selectionMode?(marked.Contains(c)?"☑":"☐"):"▶",Foreground=(Brush)FindResource("Accent"),FontSize=20 });
    top.Children.Add(new TextBlock { Text=index.ToString("00"),Foreground=(Brush)FindResource("Accent"),FontSize=17,HorizontalAlignment=HorizontalAlignment.Right }); panel.Children.Add(top);
-   panel.Children.Add(new TextBlock { Text=c.Name,FontSize=16,FontWeight=FontWeights.SemiBold,TextTrimming=TextTrimming.CharacterEllipsis,ToolTip=c.Path });
-   panel.Children.Add(new TextBlock { Text=(c.Favorite?"★  ":"")+System.IO.Path.GetExtension(c.Path).TrimStart('.').ToUpperInvariant(),Foreground=Brushes.DarkGray,FontSize=11,Margin=new Thickness(0,8,0,0) });
+   panel.Children.Add(new TextBlock { Text=c.Name,FontSize=14,FontWeight=FontWeights.SemiBold,TextTrimming=TextTrimming.CharacterEllipsis,ToolTip=c.Path });
+   panel.Children.Add(new TextBlock { Text=(c.Favorite?"★  ":"")+System.IO.Path.GetExtension(c.Path).TrimStart('.').ToUpperInvariant(),Foreground=new SolidColorBrush(Color.FromRgb(132,153,167)),FontSize=11,Margin=new Thickness(0,8,0,0) });
    FrameworkElement content=panel;
    if(list)
    {
     var row=new Grid(); row.ColumnDefinitions.Add(new ColumnDefinition { Width=new GridLength(32) }); row.ColumnDefinitions.Add(new ColumnDefinition { Width=new GridLength(1,GridUnitType.Star) }); row.ColumnDefinitions.Add(new ColumnDefinition { Width=new GridLength(46) }); row.ColumnDefinitions.Add(new ColumnDefinition { Width=new GridLength(98) });
-    row.Children.Add(new TextBlock { Text=selectionMode?(marked.Contains(c)?"☑":"☐"):"▶",Foreground=(Brush)FindResource("Accent"),VerticalAlignment=VerticalAlignment.Center });
+    row.Children.Add(new TextBlock { Text=selectionMode?(marked.Contains(c)?"☑":"☐"):"▶",Foreground=marked.Contains(c)||ReferenceEquals(selected,c)?(Brush)FindResource("Accent"):new SolidColorBrush(Color.FromRgb(110,132,145)),VerticalAlignment=VerticalAlignment.Center });
     var name=new TextBlock { Text=(c.Favorite?"★  ":"")+c.Name,TextTrimming=TextTrimming.CharacterEllipsis,FontWeight=FontWeights.SemiBold,VerticalAlignment=VerticalAlignment.Center,ToolTip=c.Name }; Grid.SetColumn(name,1); row.Children.Add(name);
-    var format=new TextBlock { Text=System.IO.Path.GetExtension(c.Path).TrimStart('.').ToUpperInvariant(),FontSize=11,Foreground=Brushes.DarkGray,VerticalAlignment=VerticalAlignment.Center }; Grid.SetColumn(format,2); row.Children.Add(format);
-    var hotkey=new TextBlock { Text=index<=9?$"Ctrl+Alt+{index}":"—",FontSize=11,Foreground=Brushes.DarkGray,HorizontalAlignment=HorizontalAlignment.Right,VerticalAlignment=VerticalAlignment.Center }; Grid.SetColumn(hotkey,3); row.Children.Add(hotkey); content=row;
+    var format=new TextBlock { Text=System.IO.Path.GetExtension(c.Path).TrimStart('.').ToUpperInvariant(),FontSize=11,Foreground=new SolidColorBrush(Color.FromRgb(132,153,167)),VerticalAlignment=VerticalAlignment.Center }; Grid.SetColumn(format,2); row.Children.Add(format);
+    var hotkey=new TextBlock { Text=index<=9?$"Ctrl+Alt+{index}":"—",FontSize=11,Foreground=new SolidColorBrush(Color.FromRgb(132,153,167)),HorizontalAlignment=HorizontalAlignment.Right,VerticalAlignment=VerticalAlignment.Center }; Grid.SetColumn(hotkey,3); row.Children.Add(hotkey); content=row;
    }
-   var button=new Button { Content=content,Width=list?double.NaN:208,Height=list?58:158,Margin=list?new Thickness(0,0,10,8):new Thickness(0,0,12,12),Padding=new Thickness(16),HorizontalContentAlignment=HorizontalAlignment.Stretch,ToolTip=selectionMode?L10n.T("Выбрать / снять выбор"):L10n.T("Нажми для запуска. Ctrl+клик — выбрать. Правой кнопкой — настройки клипа.") }; button.Click+=(_,_)=>ActivateClip(c);
-   if(marked.Contains(c))button.Background=new SolidColorBrush(Color.FromRgb(52,68,38));
+   var button=new Button { Content=content,Width=list?double.NaN:192,Height=list?60:142,Margin=list?new Thickness(0,0,8,4):new Thickness(0,0,12,12),Padding=new Thickness(16),HorizontalContentAlignment=HorizontalAlignment.Stretch,ToolTip=selectionMode?L10n.T("Выбрать / снять выбор"):L10n.T("Нажми для запуска. Ctrl+клик — выбрать. Правой кнопкой — настройки клипа.") }; button.Click+=(_,_)=>ActivateClip(c);
+   button.Background=marked.Contains(c)||ReferenceEquals(selected,c)?new SolidColorBrush(Color.FromRgb(32,46,52)):list?Brushes.Transparent:new SolidColorBrush(Color.FromRgb(23,35,44));
    System.Windows.Automation.AutomationProperties.SetName(button,(selectionMode?L10n.T("Выбрать "):L10n.T("Воспроизвести "))+c.Name);
    var menu=new ContextMenu();
    var edit=new MenuItem { Header=L10n.T("Настроить эффекты") }; edit.Click+=(_,_)=>Select(c); menu.Items.Add(edit);

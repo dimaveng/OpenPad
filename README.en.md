@@ -38,7 +38,7 @@ OpenPad installs into `%LOCALAPPDATA%\Programs\OpenPad` and adds a Start Menu sh
 
 The interface is available in Ukrainian, English and Russian.
 
-1. Click **Set up voice + sounds** in the right panel.
+1. Click **Set up voice + sounds** in the bottom routing panel.
 2. Select your physical microphone and enable **Send my voice to Discord**.
 3. Select **CABLE Input** as the OpenPad output and **CABLE Output** as the Discord input.
 4. Keep OpenPad running: it mixes the microphone and clips.
@@ -52,7 +52,7 @@ Import .opl adds a collection with embedded audio. Export includes the whole lib
 
 ## Language
 
-The Language selector is on the left below Favorites. Ukrainian, English and Russian switch live, and your choice is saved. On first start or migration from settings without a language, the Windows display language is used: uk → Ukrainian, ru → Russian, all others → English. Clip names and device names remain unchanged. OS dialogs and system error details may follow the Windows language. The installer UI also follows Windows; technical installation logs remain in English.
+The Language selector is at the bottom of the left sidebar. Ukrainian, English and Russian switch live, and your choice is saved. On first start or migration from settings without a language, the Windows display language is used: uk → Ukrainian, ru → Russian, all others → English. Clip names and device names remain unchanged. OS dialogs and system error details may follow the Windows language. The installer UI also follows Windows; technical installation logs remain in English.
 
 ## Library and data
 

@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using NAudio.Wave;
 
 namespace Soundpad;
 
@@ -17,13 +18,21 @@ internal static class UiSmoke
         string data=Path.Combine(Path.GetTempPath(),"OpenPad-UI-"+Guid.NewGuid().ToString("N")); Directory.CreateDirectory(data);
         Environment.SetEnvironmentVariable("SOUNDPAD_DATA",data);
         var prefs=new Preferences { Language="ru" };
-        for(int i=1;i<=18;i++) prefs.Clips.Add(new Clip { Name=$"Клип {i:00} — тест интерфейса",Path=$"sample-{i:00}.wav" });
+        string fixture=Path.Combine(data,"silence.wav");
+        using(var writer=new WaveFileWriter(fixture,new WaveFormat(48000,16,1)))writer.Write(new byte[9600],0,9600);
+        for(int i=1;i<=18;i++) prefs.Clips.Add(new Clip { Name=$"Клип {i:00} — тест интерфейса",Path=fixture });
         File.WriteAllText(Path.Combine(data,"library.json"),JsonSerializer.Serialize(prefs));
         var window=new MainWindow { Width=1240,Height=820 };
         window.Loaded+=(_,_)=>window.Dispatcher.BeginInvoke(new Action(()=>
         {
             try
             {
+                window.Status.Text="Демонстрационная библиотека · 18 звуков";
+                ((Button)window.Tiles.Children[0]).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                if(!window.Status.Text.StartsWith(L10n.T("Играет: "),StringComparison.Ordinal))throw new Exception("Clip launch failed");
+                window.ClipGain.Value=150; window.Bass.Value=6;
+                var clipState=JsonSerializer.Deserialize<Preferences>(File.ReadAllText(Path.Combine(data,"library.json")))!;
+                if(clipState.Clips[0].Gain!=150 || clipState.Clips[0].Bass!=6)throw new Exception("Effect controls not saved");
                 window.Status.Text="Демонстрационная библиотека · 18 звуков";
                 Capture(window,Path.Combine(output,"tiles.png"));
                 foreach(var scroll in Descendants<ScrollViewer>(window).Where(s=>s.ScrollableHeight>0))
@@ -35,10 +44,14 @@ internal static class UiSmoke
                 window.ListMode.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 if(window.Rows.Children.Count!=18 || window.Tiles.Visibility!=Visibility.Collapsed)throw new Exception("List switch failed");
                 Capture(window,Path.Combine(output,"list.png"));
+                window.Width=1440; window.Height=900;
+                Capture(window,Path.Combine(output,"list-large.png"));
                 window.Search.Text="07";
                 if(window.Rows.Children.Count!=1)throw new Exception("List search failed");
                 window.Search.Text=""; window.Width=1020; window.Height=720;
                 Capture(window,Path.Combine(output,"list-small.png"));
+                foreach(var control in new FrameworkElement[]{window.Output,window.Microphone,window.Monitor,window.VoiceGain,window.LanguagePicker})
+                    if(control.ActualWidth<40 || control.ActualHeight<3)throw new Exception("Required control has no layout space");
                 var saved=JsonSerializer.Deserialize<Preferences>(File.ReadAllText(Path.Combine(data,"library.json")))!;
                 if(saved.ViewMode!="list")throw new Exception("View preference not saved");
                 window.Close();
