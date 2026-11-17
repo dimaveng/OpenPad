@@ -1,10 +1,10 @@
 # OpenPad
 
-[Русский](README.md) · **English**
+[Русский](README.md) · **English** · [Українська](README.uk.md)
 
 An open-source Windows soundboard: send clips and your microphone to Discord, play Ogg Vorbis / Opus, apply up to 500% gain and boost the bass.
 
-![OpenPad list view](docs/list.png)
+![OpenPad list view](docs/en.png)
 
 ## Who made this?
 
@@ -36,10 +36,10 @@ OpenPad installs into `%LOCALAPPDATA%\Programs\OpenPad` and adds a Start Menu sh
 
 ## Discord: voice and clips
 
-The application interface is currently in Russian.
+The interface is available in Ukrainian, English and Russian.
 
-1. Click **«Настроить голос + звуки»** (Set up voice + clips) in the right panel.
-2. Select your physical microphone and enable **«Передавать мой голос в Discord»** (Send my voice to Discord).
+1. Click **Set up voice + sounds** in the right panel.
+2. Select your physical microphone and enable **Send my voice to Discord**.
 3. Select **CABLE Input** as the OpenPad output and **CABLE Output** as the Discord input.
 4. Keep OpenPad running: it mixes the microphone and clips.
 5. If Discord suppresses clips, review its noise suppression and input sensitivity settings.
@@ -48,7 +48,11 @@ Clip gain does not affect voice gain. Distortion processes the combined output. 
 
 ## OPL packages and multiple selection
 
-Import .opl adds a collection with embedded audio. Export includes the whole library or selected clips. Click «Выбрать звуки» (Select clips) or Ctrl+click to select multiple items; «Все видимые» (Select visible) respects search and favorites. «Убрать» removes library entries while keeping audio files. Undo restores the last removal until the app closes. See the [OPL format and limits](docs/OPL.md).
+Import .opl adds a collection with embedded audio. Export includes the whole library or selected clips. Click “Select sounds” or Ctrl+click to select multiple items; “Select visible” respects search and favorites. “Remove” removes library entries while keeping audio files. Undo restores the last removal until the app closes. See the [OPL format and limits](docs/OPL.md).
+
+## Language
+
+The Language selector is on the left below Favorites. Ukrainian, English and Russian switch live, and your choice is saved. On first start or migration from settings without a language, the Windows display language is used: uk → Ukrainian, ru → Russian, all others → English. Clip names and device names remain unchanged. OS dialogs and system error details may follow the Windows language. The installer UI also follows Windows; technical installation logs remain in English.
 
 ## Library and data
 

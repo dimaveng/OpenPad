@@ -13,6 +13,7 @@ artifacts/
 self-test.txt
 ui-test.txt
 opl-test.txt
+language-test.txt
 *.zip
 *.exe
 *.dll

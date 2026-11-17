@@ -39,8 +39,8 @@ public partial class MainWindow
         prefs.Clips.RemoveAll(c=>clips.Contains(c));
         if(!Save()) { prefs.Clips=before; return; }
         lastRemoved=removed; marked.ExceptWith(clips);
-        if(selected!=null && clips.Contains(selected)) { selected=null; SelectedLabel.Text="Выбери звук в библиотеке"; }
-        Render(); Status.Text=$"Убрано из библиотеки: {removed.Count}. Файлы сохранены. Доступна отмена.";
+        if(selected!=null && clips.Contains(selected)) { selected=null; SelectedLabel.Text=L10n.T("Выбери звук в библиотеке"); }
+        Render(); Status.Text=L10n.F("Убрано из библиотеки: {0}. Файлы сохранены. Доступна отмена.",removed.Count);
     }
     void UndoRemoval(object sender,RoutedEventArgs e)
     {
@@ -48,16 +48,16 @@ public partial class MainWindow
         var before=prefs.Clips.ToList();
         foreach(var item in lastRemoved) prefs.Clips.Insert(Math.Min(item.Index,prefs.Clips.Count),item.Clip);
         if(!Save()) { prefs.Clips=before; return; }
-        lastRemoved=null; Render(); Status.Text="Удаление из библиотеки отменено";
+        lastRemoved=null; Render(); Status.Text=L10n.T("Удаление из библиотеки отменено");
     }
     void UpdateSelectionBar()
     {
         marked.RemoveWhere(c=>!prefs.Clips.Contains(c));
-        SelectionModeButton.Content=selectionMode?"Завершить":"Выбрать звуки";
-        SelectionCount.Text=$"Выбрано: {marked.Count}";
+        SelectionModeButton.Content=selectionMode?L10n.T("Завершить"):L10n.T("Выбрать звуки");
+        SelectionCount.Text=L10n.F("Выбрано: {0}",marked.Count);
         DeleteSelectionButton.IsEnabled=marked.Count>0;
         UndoRemovalButton.IsEnabled=lastRemoved!=null;
-        ExportPackageButton.Content="Экспорт .opl"; ExportPackageButton.ToolTip=marked.Count>0?$"Экспортировать выбранные звуки: {marked.Count}":"Экспортировать всю библиотеку";
+        ExportPackageButton.Content=L10n.T("Экспорт .opl"); ExportPackageButton.ToolTip=marked.Count>0?L10n.F("Экспортировать выбранные звуки: {0}",marked.Count):L10n.T("Экспортировать всю библиотеку");
     }
     static Clip CopyClip(Clip c)=>new() { Path=c.Path,Name=c.Name,Gain=c.Gain,Bass=c.Bass,Effects=c.Effects,Favorite=c.Favorite };
     void ImportPackage(object sender,RoutedEventArgs e)
@@ -68,27 +68,27 @@ public partial class MainWindow
     async Task ImportPackageAsync(string path)
     {
         if(packageBusy)return;
-        packageBusy=true; IsEnabled=false; Status.Text="Проверка и импорт .opl…";
+        packageBusy=true; IsEnabled=false; Status.Text=L10n.T("Проверка и импорт .opl…");
         try
         {
             var existing=prefs.Clips.Select(CopyClip).ToList();
             using var result=await Task.Run(()=>OplPackage.Import(path,dataDir,existing));
             prefs.Clips.AddRange(result.Clips);
             if(!Save()) { foreach(var c in result.Clips)prefs.Clips.Remove(c); return; }
-            result.Commit(); Render(); Status.Text=$"Импорт .opl: добавлено {result.Clips.Count}, повторов пропущено {result.Skipped}";
+            result.Commit(); Render(); Status.Text=L10n.F("Импорт .opl: добавлено {0}, повторов пропущено {1}",result.Clips.Count,result.Skipped);
         }
-        catch(Exception ex) { Status.Text="Импорт .opl не выполнен"; MessageBox.Show(this,ex.Message,"Импорт .opl",MessageBoxButton.OK,MessageBoxImage.Information); }
+        catch(Exception ex) { Status.Text=L10n.T("Импорт .opl не выполнен"); MessageBox.Show(this,L10n.T(ex.Message),L10n.T("Импорт .opl"),MessageBoxButton.OK,MessageBoxImage.Information); }
         finally { packageBusy=false; IsEnabled=true; }
     }
     async void ExportPackage(object sender,RoutedEventArgs e)
     {
         var clips=prefs.Clips.Where(c=>marked.Count==0||marked.Contains(c)).Select(CopyClip).ToList();
-        if(clips.Count==0) { Status.Text="В библиотеке нет звуков для экспорта"; return; }
+        if(clips.Count==0) { Status.Text=L10n.T("В библиотеке нет звуков для экспорта"); return; }
         var dialog=new SaveFileDialog { Filter="OpenPad Library|*.opl",DefaultExt=".opl",FileName="OpenPad-library.opl" };
         if(dialog.ShowDialog()!=true)return;
-        packageBusy=true; IsEnabled=false; Status.Text="Экспорт .opl…";
-        try { await Task.Run(()=>OplPackage.Export(dialog.FileName,clips)); Status.Text=$"Экспортировано звуков: {clips.Count}"; }
-        catch(Exception ex) { Status.Text="Экспорт .opl не выполнен"; MessageBox.Show(this,ex.Message,"Экспорт .opl",MessageBoxButton.OK,MessageBoxImage.Information); }
+        packageBusy=true; IsEnabled=false; Status.Text=L10n.T("Экспорт .opl…");
+        try { await Task.Run(()=>OplPackage.Export(dialog.FileName,clips)); Status.Text=L10n.F("Экспортировано звуков: {0}",clips.Count); }
+        catch(Exception ex) { Status.Text=L10n.T("Экспорт .opl не выполнен"); MessageBox.Show(this,L10n.T(ex.Message),L10n.T("Экспорт .opl"),MessageBoxButton.OK,MessageBoxImage.Information); }
         finally { packageBusy=false; IsEnabled=true; }
     }
 }

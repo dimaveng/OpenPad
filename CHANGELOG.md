@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0
+
+- Ukrainian, English and Russian application UI, messages, dialogs and tooltips.
+- Detect the Windows display language when no preference exists; use English for unsupported languages.
+- Live language switching with a persisted preference; preserve library and audio settings.
+- Ukrainian README and three-language README navigation.
+- Installer UI follows the Windows display language; technical installation logs remain in English.
+- Translation coverage/format tests plus local UI migration and switching checks; audio engine unchanged.
+
 ## 0.4.1
 
 - Keep the export button label short; show export scope in its tooltip and the selection counter.

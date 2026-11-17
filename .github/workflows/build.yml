@@ -36,6 +36,12 @@ jobs:
           $p = Start-Process ./artifacts/app/OpenPad.exe -ArgumentList '--opl-test' -Wait -PassThru
           Get-Content opl-test.txt
           if ($p.ExitCode -ne 0) { throw 'OPL smoke test failed' }
+      - name: Localization smoke test
+        shell: pwsh
+        run: |
+          $p = Start-Process ./artifacts/app/OpenPad.exe -ArgumentList '--language-test' -Wait -PassThru
+          Get-Content language-test.txt
+          if ($p.ExitCode -ne 0) { throw 'Localization smoke test failed' }
       - name: Build installer
         shell: powershell
         run: ./Installer/Build.ps1

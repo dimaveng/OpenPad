@@ -30,6 +30,7 @@ public sealed class Preferences
  public bool Voice {get;set;}
  public double VoiceGain {get;set;}=100;
  public string ViewMode {get;set;}="tiles";
+ public string? Language {get;set;}
 }
 public record Device(int Id,string Name) { public override string ToString()=>Name; }
 public partial class MainWindow : Window
@@ -45,12 +46,12 @@ public partial class MainWindow : Window
  public MainWindow()
  {
   InitializeComponent(); Title="OpenPad "+VersionInfo.Current; VersionLabel.Text="OpenPad / "+VersionInfo.Current; Directory.CreateDirectory(dataDir);
-  try { if(File.Exists(StatePath)) prefs=JsonSerializer.Deserialize<Preferences>(File.ReadAllText(StatePath)) ?? new(); } catch { Status.Text="Не удалось прочитать настройки. Создана новая библиотека."; }
-  Master.Value=prefs.Master; VoiceGain.Value=prefs.VoiceGain; Distort.IsChecked=prefs.Distortion; SharedGain=(float)Master.Value/100;
+  try { if(File.Exists(StatePath)) prefs=JsonSerializer.Deserialize<Preferences>(File.ReadAllText(StatePath)) ?? new(); } catch { Status.Text=L10n.T("Не удалось прочитать настройки. Создана новая библиотека."); }
+  ApplyLanguage(); Master.Value=prefs.Master; VoiceGain.Value=prefs.VoiceGain; Distort.IsChecked=prefs.Distortion; SharedGain=(float)Master.Value/100;
   Preset.SelectedIndex=0; FillDevices(); ready=true; Render(); Configure(); SettingsChanged(this,new());
   if(Environment.GetEnvironmentVariable("SOUNDPAD_CAPTURE") is string capture)
    Loaded+=(_,_)=>Dispatcher.BeginInvoke(new Action(()=> { var bitmap=new System.Windows.Media.Imaging.RenderTargetBitmap((int)ActualWidth,(int)ActualHeight,96,96,PixelFormats.Pbgra32); bitmap.Render(this); var encoder=new System.Windows.Media.Imaging.PngBitmapEncoder(); encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap)); using(var file=File.Create(capture))encoder.Save(file); Close(); }),DispatcherPriority.ApplicationIdle);
-  SourceInitialized+=(_,_)=> { handle=new WindowInteropHelper(this).Handle; HwndSource.FromHwnd(handle).AddHook(Hook); int failed=0; for(int i=0;i<10;i++) if(!RegisterHotKey(handle,100+i,0x4003,(uint)(0x30+i))) failed++; if(failed>0) Status.Text=$"Не удалось занять горячие клавиши: {failed}. Возможно, они используются другой программой."; };
+  SourceInitialized+=(_,_)=> { handle=new WindowInteropHelper(this).Handle; HwndSource.FromHwnd(handle).AddHook(Hook); int failed=0; for(int i=0;i<10;i++) if(!RegisterHotKey(handle,100+i,0x4003,(uint)(0x30+i))) failed++; if(failed>0) Status.Text=L10n.F("Не удалось занять горячие клавиши: {0}. Возможно, они используются другой программой.",failed); };
   timer.Tick+=(_,_)=> { Level.Value=engine.Peak; MicLevel.Value=engine.MicPeak; }; timer.Start();
   Closing+=(_,e)=> { if(packageBusy) { e.Cancel=true; return; } Save(); timer.Stop(); engine.Dispose(); for(int i=0;i<10;i++) UnregisterHotKey(handle,100+i); };
  }
@@ -69,42 +70,42 @@ public partial class MainWindow : Window
   if(!ready)return false;
   prefs.Master=Master.Value; prefs.VoiceGain=VoiceGain.Value; prefs.Distortion=Distort.IsChecked==true;
   prefs.Output=(Output.SelectedItem as Device)?.Name; prefs.Monitor=(Monitor.SelectedItem as Device)?.Name; prefs.Microphone=(Microphone.SelectedItem as Device)?.Name; prefs.Voice=MicEnabled.IsChecked==true;
-  try { var temp=StatePath+".tmp"; File.WriteAllText(temp,JsonSerializer.Serialize(prefs,new JsonSerializerOptions { WriteIndented=true })); File.Move(temp,StatePath,true); return true; } catch(Exception ex) { Status.Text="Не удалось сохранить: "+ex.Message; return false; }
+  try { var temp=StatePath+".tmp"; File.WriteAllText(temp,JsonSerializer.Serialize(prefs,new JsonSerializerOptions { WriteIndented=true })); File.Move(temp,StatePath,true); return true; } catch(Exception ex) { Status.Text=L10n.T("Не удалось сохранить: ")+L10n.T(ex.Message); return false; }
  }
  void FillDevices()
  {
   updating=true;
   var outputs=Enumerable.Range(0,WaveOut.DeviceCount).Select(i=>new Device(i,WaveOut.GetCapabilities(i).ProductName)).ToList();
   Output.ItemsSource=outputs; Output.SelectedItem=outputs.FirstOrDefault(d=>d.Name==prefs.Output) ?? outputs.FirstOrDefault(d=>d.Name.Contains("CABLE",StringComparison.OrdinalIgnoreCase)) ?? outputs.FirstOrDefault();
-  var monitors=new List<Device>{new(-2,"Не прослушивать")}; monitors.AddRange(outputs); Monitor.ItemsSource=monitors; Monitor.SelectedItem=monitors.FirstOrDefault(d=>d.Name==prefs.Monitor) ?? monitors[0];
+  var monitors=new List<Device>{new(-2,L10n.T("Не прослушивать"))}; monitors.AddRange(outputs); Monitor.ItemsSource=monitors; Monitor.SelectedItem=monitors.FirstOrDefault(d=>d.Name==prefs.Monitor) ?? monitors[0];
   var inputs=Enumerable.Range(0,WaveIn.DeviceCount).Select(i=>new Device(i,WaveIn.GetCapabilities(i).ProductName)).Where(d=>!d.Name.Contains("CABLE",StringComparison.OrdinalIgnoreCase)).ToList(); Microphone.ItemsSource=inputs; Microphone.SelectedItem=inputs.FirstOrDefault(d=>d.Name==prefs.Microphone) ?? inputs.FirstOrDefault(); MicEnabled.IsChecked=prefs.Voice;
   updating=false;
  }
  void Configure()
  {
   if(!ready || updating)return;
-  try { if(Output.SelectedItem is not Device d) { Status.Text="Нет устройств вывода. Подключи наушники и обнови список."; return; } engine.Configure(d.Id,(Monitor.SelectedItem as Device)?.Id ?? -2,(Microphone.SelectedItem as Device)?.Id ?? -1,MicEnabled.IsChecked==true); engine.Distortion=Distort.IsChecked==true; Status.Text="Выход: "+d.Name; } catch(Exception e) { Status.Text="Не удалось открыть аудиоустройство: "+e.Message; }
+  try { if(Output.SelectedItem is not Device d) { Status.Text=L10n.T("Нет устройств вывода. Подключи наушники и обнови список."); return; } engine.Configure(d.Id,(Monitor.SelectedItem as Device)?.Id ?? -2,(Microphone.SelectedItem as Device)?.Id ?? -1,MicEnabled.IsChecked==true); engine.Distortion=Distort.IsChecked==true; Status.Text=L10n.T("Выход: ")+d.Name; } catch(Exception e) { Status.Text=L10n.T("Не удалось открыть аудиоустройство: ")+L10n.T(e.Message); }
   Save();
-  VoiceStatus.Text=engine.VoiceActive ? "Голос + звуки → выбранный выход" : "Микрофон выключен";
+  VoiceStatus.Text=engine.VoiceActive ? L10n.T("Голос + звуки → выбранный выход") : L10n.T("Микрофон выключен");
  }
  void SetupDiscord(object sender,RoutedEventArgs e)
  {
   Save(); FillDevices();
   var cable=Output.Items.Cast<Device>().FirstOrDefault(d=>d.Name.Contains("CABLE Input",StringComparison.OrdinalIgnoreCase));
-  if(cable==null) { Status.Text="VB-CABLE не найден. Установи драйвер и нажми «Обновить устройства»."; return; }
-  if(Microphone.SelectedItem==null) { Status.Text="Подключи физический микрофон и обнови устройства."; return; }
+  if(cable==null) { Status.Text=L10n.T("VB-CABLE не найден. Установи драйвер и нажми «Обновить устройства»."); return; }
+  if(Microphone.SelectedItem==null) { Status.Text=L10n.T("Подключи физический микрофон и обнови устройства."); return; }
   updating=true; Output.SelectedItem=cable; MicEnabled.IsChecked=true; updating=false; Configure();
  }
  void RouteChanged(object sender,RoutedEventArgs e)=>Configure();
  void RefreshDevices(object sender,RoutedEventArgs e) { Save(); FillDevices(); Configure(); }
  void SettingsChanged(object sender,RoutedEventArgs e)
  {
-  if(!ready)return; SharedGain=(float)Master.Value/100; MasterLabel.Text=$"Общая громкость · {Master.Value:0}%"; engine.VoiceGain=(float)VoiceGain.Value/100; engine.Distortion=Distort.IsChecked==true; Save();
+  if(!ready)return; SharedGain=(float)Master.Value/100; MasterLabel.Text=L10n.F("Общая громкость · {0:0}%",Master.Value); engine.VoiceGain=(float)VoiceGain.Value/100; engine.Distortion=Distort.IsChecked==true; Save();
  }
  void ClipChanged(object sender,RoutedEventArgs e)
  {
   if(!ready || updating)return;
-  ClipLabel.Text=$"Громкость клипа · {ClipGain.Value:0}%"; BassLabel.Text=$"Bass Boost · {Bass.Value:0} dB";
+  ClipLabel.Text=L10n.F("Громкость клипа · {0:0}%",ClipGain.Value); BassLabel.Text=$"Bass Boost · {Bass.Value:0} dB";
   if(selected!=null) { selected.Gain=(float)ClipGain.Value; selected.Bass=(float)Bass.Value; selected.Effects=Effects.IsChecked==true; Save(); }
  }
  void PresetChanged(object sender,SelectionChangedEventArgs e) { if(!ready||updating)return; Bass.Value=new double[]{0,6,12,20}[Math.Max(0,Preset.SelectedIndex)]; }
@@ -115,12 +116,12 @@ public partial class MainWindow : Window
  void Play(Clip c)
  {
   Select(c);
-  try { engine.Play(c); Status.Text="Играет: "+c.Name; } catch(Exception ex) { Status.Text="Не удалось воспроизвести: "+ex.Message; }
+  try { engine.Play(c); Status.Text=L10n.T("Играет: ")+c.Name; } catch(Exception ex) { Status.Text=L10n.T("Не удалось воспроизвести: ")+L10n.T(ex.Message); }
  }
- void StopAll(object sender,RoutedEventArgs e) { engine.Stop(); Status.Text="Все звуки остановлены"; }
+ void StopAll(object sender,RoutedEventArgs e) { engine.Stop(); Status.Text=L10n.T("Все звуки остановлены"); }
  void Import(object sender,RoutedEventArgs e)
  {
-  var dialog=new OpenFileDialog { Multiselect=true, Filter="Аудио и OpenPad|*.opl;*.wav;*.mp3;*.ogg;*.opus;*.aiff;*.wma;*.m4a;*.aac|Ogg Vorbis / Opus|*.ogg;*.opus|Все файлы|*.*" }; if(dialog.ShowDialog()==true) AddFiles(dialog.FileNames);
+  var dialog=new OpenFileDialog { Multiselect=true, Filter=L10n.T("Аудио и OpenPad|*.opl;*.wav;*.mp3;*.ogg;*.opus;*.aiff;*.wma;*.m4a;*.aac|Ogg Vorbis / Opus|*.ogg;*.opus|Все файлы|*.*") }; if(dialog.ShowDialog()==true) AddFiles(dialog.FileNames);
  }
  void FilesDropped(object sender,DragEventArgs e) { if(e.Data.GetData(DataFormats.FileDrop) is string[] files) AddFiles(files); }
  async void AddFiles(IEnumerable<string> files)
@@ -132,9 +133,9 @@ public partial class MainWindow : Window
   var errors=new List<string>(); int added=0,failed=0; foreach(var file in audio)
   {
    if(prefs.Clips.Any(c=>string.Equals(c.Path,file,StringComparison.OrdinalIgnoreCase)))continue;
-   try { using var probe=AudioDecoder.Open(file); if(probe.WaveFormat.Channels>2)throw new NotSupportedException(); prefs.Clips.Add(new Clip { Path=file,Name=System.IO.Path.GetFileNameWithoutExtension(file) }); added++; } catch(Exception ex) { failed++; errors.Add(System.IO.Path.GetFileName(file)+": "+ex.Message); }
+   try { using var probe=AudioDecoder.Open(file); if(probe.WaveFormat.Channels>2)throw new NotSupportedException(); prefs.Clips.Add(new Clip { Path=file,Name=System.IO.Path.GetFileNameWithoutExtension(file) }); added++; } catch(Exception ex) { failed++; errors.Add(System.IO.Path.GetFileName(file)+": "+L10n.T(ex.Message)); }
   }
-  if(errors.Count>0)MessageBox.Show(this,string.Join(Environment.NewLine,errors),"Не удалось добавить файлы",MessageBoxButton.OK,MessageBoxImage.Information); Save(); Render(); Status.Text=$"Добавлено: {added}"+(failed>0?$" · Не удалось прочитать: {failed}":"");
+  if(errors.Count>0)MessageBox.Show(this,string.Join(Environment.NewLine,errors),L10n.T("Не удалось добавить файлы"),MessageBoxButton.OK,MessageBoxImage.Information); Save(); Render(); Status.Text=L10n.F("Добавлено: {0}",added)+(failed>0?L10n.F(" · Не удалось прочитать: {0}",failed):"");
  }
  void ShowAll(object sender,RoutedEventArgs e) { favorites=false; Render(); }
  void ShowFavorites(object sender,RoutedEventArgs e) { favorites=true; Render(); }
@@ -165,19 +166,19 @@ public partial class MainWindow : Window
     var format=new TextBlock { Text=System.IO.Path.GetExtension(c.Path).TrimStart('.').ToUpperInvariant(),FontSize=11,Foreground=Brushes.DarkGray,VerticalAlignment=VerticalAlignment.Center }; Grid.SetColumn(format,2); row.Children.Add(format);
     var hotkey=new TextBlock { Text=index<=9?$"Ctrl+Alt+{index}":"—",FontSize=11,Foreground=Brushes.DarkGray,HorizontalAlignment=HorizontalAlignment.Right,VerticalAlignment=VerticalAlignment.Center }; Grid.SetColumn(hotkey,3); row.Children.Add(hotkey); content=row;
    }
-   var button=new Button { Content=content,Width=list?double.NaN:208,Height=list?58:158,Margin=list?new Thickness(0,0,10,8):new Thickness(0,0,12,12),Padding=new Thickness(16),HorizontalContentAlignment=HorizontalAlignment.Stretch,ToolTip=selectionMode?"Выбрать / снять выбор":"Нажми для запуска. Ctrl+клик — выбрать. Правой кнопкой — настройки клипа." }; button.Click+=(_,_)=>ActivateClip(c);
+   var button=new Button { Content=content,Width=list?double.NaN:208,Height=list?58:158,Margin=list?new Thickness(0,0,10,8):new Thickness(0,0,12,12),Padding=new Thickness(16),HorizontalContentAlignment=HorizontalAlignment.Stretch,ToolTip=selectionMode?L10n.T("Выбрать / снять выбор"):L10n.T("Нажми для запуска. Ctrl+клик — выбрать. Правой кнопкой — настройки клипа.") }; button.Click+=(_,_)=>ActivateClip(c);
    if(marked.Contains(c))button.Background=new SolidColorBrush(Color.FromRgb(52,68,38));
-   System.Windows.Automation.AutomationProperties.SetName(button,(selectionMode?"Выбрать ":"Воспроизвести ")+c.Name);
+   System.Windows.Automation.AutomationProperties.SetName(button,(selectionMode?L10n.T("Выбрать "):L10n.T("Воспроизвести "))+c.Name);
    var menu=new ContextMenu();
-   var edit=new MenuItem { Header="Настроить эффекты" }; edit.Click+=(_,_)=>Select(c); menu.Items.Add(edit);
-   var fav=new MenuItem { Header=c.Favorite?"Убрать из избранного":"В избранное" }; fav.Click+=(_,_)=> { c.Favorite=!c.Favorite; Save(); Render(); }; menu.Items.Add(fav);
-   var remove=new MenuItem { Header="Убрать из библиотеки" }; remove.Click+=(_,_)=>RemoveClips(new HashSet<Clip>{c}); menu.Items.Add(remove); button.ContextMenu=menu; if(list)Rows.Children.Add(button); else Tiles.Children.Add(button);
+   var edit=new MenuItem { Header=L10n.T("Настроить эффекты") }; edit.Click+=(_,_)=>Select(c); menu.Items.Add(edit);
+   var fav=new MenuItem { Header=c.Favorite?L10n.T("Убрать из избранного"):L10n.T("В избранное") }; fav.Click+=(_,_)=> { c.Favorite=!c.Favorite; Save(); Render(); }; menu.Items.Add(fav);
+   var remove=new MenuItem { Header=L10n.T("Убрать из библиотеки") }; remove.Click+=(_,_)=>RemoveClips(new HashSet<Clip>{c}); menu.Items.Add(remove); button.ContextMenu=menu; if(list)Rows.Children.Add(button); else Tiles.Children.Add(button);
   }
   EmptyLabel.Visibility=Tiles.Children.Count+Rows.Children.Count==0?Visibility.Visible:Visibility.Collapsed;
  }
  void CreateDemo(object sender,RoutedEventArgs e)
  {
-  string path=System.IO.Path.Combine(dataDir,"Демо — низкий импульс.wav");
+  string path=System.IO.Path.Combine(dataDir,"OpenPad-demo.wav");
   using(var writer=new WaveFileWriter(path,new WaveFormat(48000,16,1))) { for(int i=0;i<48000;i++) { double t=i/48000.0; writer.WriteSample((float)(0.25*Math.Sin(2*Math.PI*90*t)*Math.Sin(Math.PI*t))); } }
   AddFiles(new[]{path});
  }

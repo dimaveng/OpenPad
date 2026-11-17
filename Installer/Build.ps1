@@ -6,7 +6,7 @@ New-Item -ItemType Directory -Path $staging | Out-Null
 try {
  dotnet publish (Join-Path $source 'OpenPad.csproj') -c Release -o (Join-Path $staging 'app')
  if($LASTEXITCODE) { throw 'Publish failed' }
- foreach($name in @('README.md','README.en.md','LICENSE','THIRD-PARTY-NOTICES.md','CHANGELOG.md','CONTRIBUTING.md')) { Copy-Item (Join-Path $source $name) (Join-Path $staging ('app\'+$name)) }
+ foreach($name in @('README.md','README.en.md','README.uk.md','LICENSE','THIRD-PARTY-NOTICES.md','CHANGELOG.md','CONTRIBUTING.md')) { Copy-Item (Join-Path $source $name) (Join-Path $staging ('app\'+$name)) }
  Copy-Item (Join-Path $source 'licenses') (Join-Path $staging 'app\licenses') -Recurse
  Copy-Item (Join-Path $source 'docs') (Join-Path $staging 'app\docs') -Recurse
  Compress-Archive -Path (Join-Path $staging 'app\*') -DestinationPath (Join-Path $staging 'OpenPad.zip')

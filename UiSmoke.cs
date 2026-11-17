@@ -16,7 +16,7 @@ internal static class UiSmoke
         Directory.CreateDirectory(output);
         string data=Path.Combine(Path.GetTempPath(),"OpenPad-UI-"+Guid.NewGuid().ToString("N")); Directory.CreateDirectory(data);
         Environment.SetEnvironmentVariable("SOUNDPAD_DATA",data);
-        var prefs=new Preferences();
+        var prefs=new Preferences { Language="ru" };
         for(int i=1;i<=18;i++) prefs.Clips.Add(new Clip { Name=$"Клип {i:00} — тест интерфейса",Path=$"sample-{i:00}.wav" });
         File.WriteAllText(Path.Combine(data,"library.json"),JsonSerializer.Serialize(prefs));
         var window=new MainWindow { Width=1240,Height=820 };
