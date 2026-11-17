@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.1
+
+- Keep the export button label short; show export scope in its tooltip and the selection counter.
+
 ## 0.4.0
 
 - Portable .opl packages: embedded audio, ordered clip list, settings, SHA-256 validation and exact duplicate detection.

@@ -57,7 +57,7 @@ public partial class MainWindow
         SelectionCount.Text=$"Выбрано: {marked.Count}";
         DeleteSelectionButton.IsEnabled=marked.Count>0;
         UndoRemovalButton.IsEnabled=lastRemoved!=null;
-        ExportPackageButton.Content=marked.Count>0?$"Экспорт .opl ({marked.Count})":"Экспорт всех .opl";
+        ExportPackageButton.Content="Экспорт .opl"; ExportPackageButton.ToolTip=marked.Count>0?$"Экспортировать выбранные звуки: {marked.Count}":"Экспортировать всю библиотеку";
     }
     static Clip CopyClip(Clip c)=>new() { Path=c.Path,Name=c.Name,Gain=c.Gain,Bass=c.Bass,Effects=c.Effects,Favorite=c.Favorite };
     void ImportPackage(object sender,RoutedEventArgs e)
