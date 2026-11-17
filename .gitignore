@@ -14,6 +14,8 @@ self-test.txt
 ui-test.txt
 opl-test.txt
 language-test.txt
+stability-test.txt
+device-soak-test.txt
 *.zip
 *.exe
 *.dll

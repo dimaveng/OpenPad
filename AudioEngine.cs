@@ -68,6 +68,7 @@ public sealed class AudioEngine : IDisposable
     public float Peak;
     public float MicPeak;
     public float VoiceGain=1;
+    public string? LastError;
     public bool VoiceActive {get;private set;}
     public void Configure(int output, int monitor, int microphone, bool voice)
     {
@@ -76,11 +77,13 @@ public sealed class AudioEngine : IDisposable
         try
         {
             var main = new WaveOutEvent { DeviceNumber = output, DesiredLatency = 80 };
+            main.PlaybackStopped+=(_,e)=> { if(e.Exception!=null)LastError=e.Exception.Message; };
             resources.Add(main); main.Init(new MasterProvider(mix, this)); main.Play();
             monitoring = monitor >= -1 && monitor != output;
             if (monitoring)
             {
                 var headphones = new WaveOutEvent { DeviceNumber = monitor, DesiredLatency = 80 };
+                headphones.PlaybackStopped+=(_,e)=> { if(e.Exception!=null)LastError=e.Exception.Message; };
                 resources.Add(headphones); headphones.Init(new MasterProvider(monitorMix, this)); headphones.Play();
             }
             if(voice && microphone<0) throw new InvalidOperationException("Выбери физический микрофон.");
@@ -90,6 +93,7 @@ public sealed class AudioEngine : IDisposable
                 resources.Add(input);
                 var buffer = new BufferedWaveProvider(input.WaveFormat) { DiscardOnBufferOverflow = true, BufferDuration = TimeSpan.FromSeconds(1) };
                 input.DataAvailable += (_, e) => buffer.AddSamples(e.Buffer, 0, e.BytesRecorded);
+                input.RecordingStopped+=(_,e)=> { VoiceActive=false; MicPeak=0; if(e.Exception!=null)LastError=e.Exception.Message; };
                 mix.AddMixerInput(new VoiceProvider(new MonoToStereoSampleProvider(buffer.ToSampleProvider()),this)); input.StartRecording(); VoiceActive=true;
             }
         }
@@ -106,13 +110,27 @@ public sealed class AudioEngine : IDisposable
             ClipProvider? preview=null;
             try { if(monitoring)preview=new ClipProvider(clip); }
             catch { primary.Stop(); throw; }
-            active.Add(primary); mix.AddMixerInput(primary);
-            if (preview!=null) { active.Add(preview); monitorMix!.AddMixerInput(preview); }
+            try
+            {
+                mix.AddMixerInput(primary);
+                if(preview!=null)monitorMix!.AddMixerInput(preview);
+                active.Add(primary); if(preview!=null)active.Add(preview);
+            }
+            catch
+            {
+                mix.RemoveMixerInput(primary); primary.Stop();
+                if(preview!=null) { monitorMix!.RemoveMixerInput(preview); preview.Stop(); }
+                throw;
+            }
         }
     }
     public void Stop()
     {
-        lock(sync) { foreach(var p in active) p.Stop(); active.Clear(); }
+        lock(sync)
+        {
+            foreach(var p in active) { p.Stop(); mix?.RemoveMixerInput(p); monitorMix?.RemoveMixerInput(p); }
+            active.Clear();
+        }
     }
     public void Dispose()
     {

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Recover malformed library settings from a last-good backup and preserve damaged originals; normalize invalid clip collections and numeric settings.
+- Remove stopped clips from mixers immediately; clean up readers if input insertion fails.
+- Surface audio callback errors and update microphone activity status.
+- Add repeatable stability stress and installer rollback checks to Windows CI.
+
 ## 0.6.0
 
 - Implement the approved charcoal/cyan WPF redesign using a shared theme dictionary.

@@ -42,6 +42,15 @@ jobs:
           $p = Start-Process ./artifacts/app/OpenPad.exe -ArgumentList '--language-test' -Wait -PassThru
           Get-Content language-test.txt
           if ($p.ExitCode -ne 0) { throw 'Localization smoke test failed' }
+      - name: Stability smoke test
+        shell: pwsh
+        run: |
+          $p = Start-Process ./artifacts/app/OpenPad.exe -ArgumentList '--stability-test' -Wait -PassThru
+          Get-Content stability-test.txt
+          if ($p.ExitCode -ne 0) { throw 'Stability smoke test failed' }
+      - name: Installer update and rollback tests
+        shell: pwsh
+        run: ./tests/Verify-Installer.ps1 -OutputDirectory ./artifacts/installer-verification
       - name: Build installer
         shell: powershell
         run: ./Installer/Build.ps1

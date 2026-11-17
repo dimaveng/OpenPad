@@ -46,13 +46,13 @@ public partial class MainWindow : Window
  public MainWindow()
  {
   InitializeComponent(); Title="OpenPad "+VersionInfo.Current; VersionLabel.Text=VersionInfo.Current; Directory.CreateDirectory(dataDir);
-  try { if(File.Exists(StatePath)) prefs=JsonSerializer.Deserialize<Preferences>(File.ReadAllText(StatePath)) ?? new(); } catch { Status.Text=L10n.T("Не удалось прочитать настройки. Создана новая библиотека."); }
+  prefs=SettingsStore.Load(StatePath);
   ApplyLanguage(); Master.Value=prefs.Master; VoiceGain.Value=prefs.VoiceGain; Distort.IsChecked=prefs.Distortion; SharedGain=(float)Master.Value/100;
   Preset.SelectedIndex=0; FillDevices(); ready=true; Render(); Configure(); SettingsChanged(this,new()); if(prefs.Clips.FirstOrDefault() is Clip initial)Select(initial);
   if(Environment.GetEnvironmentVariable("SOUNDPAD_CAPTURE") is string capture)
    Loaded+=(_,_)=>Dispatcher.BeginInvoke(new Action(()=> { var bitmap=new System.Windows.Media.Imaging.RenderTargetBitmap((int)ActualWidth,(int)ActualHeight,96,96,PixelFormats.Pbgra32); bitmap.Render(this); var encoder=new System.Windows.Media.Imaging.PngBitmapEncoder(); encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap)); using(var file=File.Create(capture))encoder.Save(file); Close(); }),DispatcherPriority.ApplicationIdle);
   SourceInitialized+=(_,_)=> { handle=new WindowInteropHelper(this).Handle; HwndSource.FromHwnd(handle).AddHook(Hook); int failed=0; for(int i=0;i<10;i++) if(!RegisterHotKey(handle,100+i,0x4003,(uint)(0x30+i))) failed++; if(failed>0) Status.Text=L10n.F("Не удалось занять горячие клавиши: {0}. Возможно, они используются другой программой.",failed); };
-  timer.Tick+=(_,_)=> { Level.Value=engine.Peak; MicLevel.Value=engine.MicPeak; }; timer.Start();
+  timer.Tick+=(_,_)=> { Level.Value=engine.Peak; MicLevel.Value=engine.MicPeak; VoiceStatus.Text=L10n.T(engine.VoiceActive?"Голос + звуки → выбранный выход":"Микрофон выключен"); var audioError=Interlocked.Exchange(ref engine.LastError,null); if(audioError!=null)Status.Text=L10n.T("Не удалось воспроизвести: ")+L10n.T(audioError); }; timer.Start();
   Closing+=(_,e)=> { if(packageBusy) { e.Cancel=true; return; } Save(); timer.Stop(); engine.Dispose(); for(int i=0;i<10;i++) UnregisterHotKey(handle,100+i); };
  }
  string StatePath=>System.IO.Path.Combine(dataDir,"library.json");
@@ -70,7 +70,7 @@ public partial class MainWindow : Window
   if(!ready)return false;
   prefs.Master=Master.Value; prefs.VoiceGain=VoiceGain.Value; prefs.Distortion=Distort.IsChecked==true;
   prefs.Output=(Output.SelectedItem as Device)?.Name; prefs.Monitor=(Monitor.SelectedItem as Device)?.Name; prefs.Microphone=(Microphone.SelectedItem as Device)?.Name; prefs.Voice=MicEnabled.IsChecked==true;
-  try { var temp=StatePath+".tmp"; File.WriteAllText(temp,JsonSerializer.Serialize(prefs,new JsonSerializerOptions { WriteIndented=true })); File.Move(temp,StatePath,true); return true; } catch(Exception ex) { Status.Text=L10n.T("Не удалось сохранить: ")+L10n.T(ex.Message); return false; }
+  try { SettingsStore.Save(StatePath,prefs); return true; } catch(Exception ex) { Status.Text=L10n.T("Не удалось сохранить: ")+L10n.T(ex.Message); return false; }
  }
  void FillDevices()
  {
