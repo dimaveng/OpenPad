@@ -6,6 +6,10 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+[assembly: AssemblyVersion("0.3.0.0")]
+[assembly: AssemblyFileVersion("0.3.0.0")]
+[assembly: AssemblyInformationalVersion("0.3.0")]
+[assembly: AssemblyProduct("OpenPad Installer")]
 
 class Setup : Form
 {
@@ -13,7 +17,7 @@ class Setup : Form
     [STAThread] static void Main() { Application.EnableVisualStyles(); Application.Run(new Setup()); }
     Setup()
     {
-        Text="OpenPad — установка"; ClientSize=new Size(640,440); StartPosition=FormStartPosition.CenterScreen;
+        Text="OpenPad 0.3.0 — установка"; ClientSize=new Size(640,440); StartPosition=FormStartPosition.CenterScreen;
         BackColor=Color.FromArgb(17,20,18); ForeColor=Color.White; Font=new Font("Segoe UI",11);
         Controls.Add(new Label { Text="OpenPad /", Font=new Font("Segoe UI",28,FontStyle.Bold), Location=new Point(24,20),AutoSize=true });
         Controls.Add(new Label { Text="Приложение, .NET и звук для Discord.", Location=new Point(26,82),AutoSize=true });

@@ -28,7 +28,7 @@ This is an independent experimental project, not an official OpenAI product. Cre
 
 Requires Windows x64 and .NET Desktop Runtime 10. Sending audio to Discord requires [VB-CABLE](https://vb-audio.com/Cable/).
 
-Builds are available as artifacts of successful [Windows build](https://github.com/dimaveng/OpenPad/actions/workflows/build.yml) runs. GitHub sign-in is required to download Actions artifacts. Alternatively, build from source below.
+Installers and corresponding source archives are available from [GitHub Releases](https://github.com/dimaveng/OpenPad/releases). Check the version in the OpenPad title and SHA256SUMS.txt. A successful vX.Y.Z tag build, or a manual Windows build on main with release_tag, publishes the release.
 
 Run `OpenPad-Setup.exe` and click the install button. OpenPad is embedded in the installer. Missing .NET and VB-CABLE dependencies are downloaded from their official publishers and checksum-verified. Click **Install Driver** in the VB-CABLE window and confirm the Windows elevation prompt. Restart Windows if the driver requires it.
 

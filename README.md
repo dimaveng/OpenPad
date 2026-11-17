@@ -28,7 +28,7 @@
 
 Windows x64, .NET Desktop Runtime 10. Для отправки звука в Discord нужен [VB-CABLE](https://vb-audio.com/Cable/).
 
-Сборки доступны в артефактах успешного запуска [Windows build](https://github.com/dimaveng/OpenPad/actions/workflows/build.yml). Для скачивания артефактов Actions нужен вход в GitHub. Либо соберите приложение из исходников ниже.
+Готовые установщики и соответствующие исходники: [GitHub Releases](https://github.com/dimaveng/OpenPad/releases). Проверяйте версию в заголовке OpenPad и контрольные суммы SHA256SUMS.txt. Выпуск создаётся автоматически после успешной сборки тега vX.Y.Z либо ручного запуска Windows build на main с release_tag.
 
 Запустите `OpenPad-Setup.exe` и нажмите «Установить OpenPad». Программа находится внутри установщика. Недостающие .NET и VB-CABLE скачиваются с официальных сайтов с проверкой контрольных сумм. В окне VB-CABLE нажмите **Install Driver** и подтвердите запрос Windows. Перезагрузите компьютер, если это требуется драйвером.
 

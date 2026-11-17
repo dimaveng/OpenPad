@@ -44,7 +44,7 @@ public partial class MainWindow : Window
  [DllImport("user32.dll")] static extern bool UnregisterHotKey(IntPtr hwnd,int id);
  public MainWindow()
  {
-  InitializeComponent(); Directory.CreateDirectory(dataDir);
+  InitializeComponent(); Title="OpenPad "+VersionInfo.Current; VersionLabel.Text="OpenPad / "+VersionInfo.Current; Directory.CreateDirectory(dataDir);
   try { if(File.Exists(StatePath)) prefs=JsonSerializer.Deserialize<Preferences>(File.ReadAllText(StatePath)) ?? new(); } catch { Status.Text="Не удалось прочитать настройки. Создана новая библиотека."; }
   Master.Value=prefs.Master; VoiceGain.Value=prefs.VoiceGain; Distort.IsChecked=prefs.Distortion; SharedGain=(float)Master.Value/100;
   Preset.SelectedIndex=0; FillDevices(); ready=true; Render(); Configure(); SettingsChanged(this,new());

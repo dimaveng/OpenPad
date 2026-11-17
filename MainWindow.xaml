@@ -2,7 +2,7 @@
  <shell:WindowChrome.WindowChrome><shell:WindowChrome CaptionHeight="36" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0" UseAeroCaptionButtons="False"/></shell:WindowChrome.WindowChrome>
  <DockPanel>
   <Border DockPanel.Dock="Top" Background="#171C18" Height="36">
-   <Grid><TextBlock Text="OpenPad" Foreground="#9DA797" FontSize="12" Margin="18,0" VerticalAlignment="Center"/>
+   <Grid><TextBlock x:Name="VersionLabel" Text="OpenPad" Foreground="#9DA797" FontSize="12" Margin="18,0" VerticalAlignment="Center"/>
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" shell:WindowChrome.IsHitTestVisibleInChrome="True">
      <Button Style="{StaticResource WindowButton}" Content="−" Width="46" Padding="0" ToolTip="Свернуть" AutomationProperties.Name="Свернуть" Click="MinimizeWindow"/>
      <Button Style="{StaticResource WindowButton}" x:Name="MaximizeButton" Content="□" Width="46" Padding="0" ToolTip="Развернуть / восстановить" AutomationProperties.Name="Развернуть / восстановить" Click="MaximizeWindow"/>
