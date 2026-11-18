@@ -6,13 +6,14 @@ namespace Soundpad;
 internal static class SettingsStore
 {
     static readonly JsonSerializerOptions Json=new(){WriteIndented=true};
-    public static Preferences Load(string path)
+    public static Preferences Load(string path,bool portable=false)
     {
         if(!File.Exists(path))return new();
         try
         {
             var prefs=JsonSerializer.Deserialize<Preferences>(File.ReadAllText(path)) ?? throw new InvalidDataException("Empty settings");
             if(Normalize(prefs))Preserve(path);
+            if(portable)ResolvePaths(prefs,path);
             return prefs;
         }
         catch(Exception ex) when(ex is JsonException or InvalidDataException)
@@ -21,7 +22,7 @@ internal static class SettingsStore
             try
             {
                 var backup=JsonSerializer.Deserialize<Preferences>(File.ReadAllText(path+".bak")) ?? new();
-                Normalize(backup); return backup;
+                Normalize(backup); if(portable)ResolvePaths(backup,path); return backup;
             }
             catch(Exception backupError) when(backupError is IOException or JsonException or InvalidDataException) { return new(); }
         }
@@ -47,9 +48,24 @@ internal static class SettingsStore
         if(prefs.ViewMode is not "tiles" and not "list")prefs.ViewMode="tiles";
         return before!=JsonSerializer.Serialize(prefs);
     }
-    public static void Save(string path,Preferences prefs)
+    static void ResolvePaths(Preferences prefs,string path)
     {
-        string json=JsonSerializer.Serialize(prefs,Json),temp=path+".tmp";
+        string folder=Path.GetDirectoryName(Path.GetFullPath(path))!;
+        foreach(var clip in prefs.Clips)if(!Path.IsPathFullyQualified(clip.Path))clip.Path=Path.GetFullPath(Path.Combine(folder,clip.Path));
+    }
+    public static void Save(string path,Preferences prefs,bool portable=false)
+    {
+        var node=JsonSerializer.SerializeToNode(prefs)!;
+        if(portable)
+        {
+            string folder=Path.GetDirectoryName(Path.GetFullPath(path))!;
+            foreach(var clip in node["Clips"]!.AsArray())
+            {
+                string full=Path.GetFullPath(clip!["Path"]!.GetValue<string>());
+                if(full.StartsWith(folder+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase))clip["Path"]=Path.GetRelativePath(folder,full);
+            }
+        }
+        string json=node.ToJsonString(Json),temp=path+".tmp";
         File.WriteAllText(temp,json); File.Move(temp,path,true);
         // Backup failure must not report the committed library save as failed.
         try { File.WriteAllText(path+".bak.tmp",json); File.Move(path+".bak.tmp",path+".bak",true); }

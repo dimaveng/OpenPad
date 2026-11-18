@@ -39,7 +39,7 @@ public partial class MainWindow : Window
  public static volatile float SharedGain=1;
  readonly AudioEngine engine=new();
  readonly string dataDir=Environment.GetEnvironmentVariable("SOUNDPAD_DATA") ?? System.IO.Path.Combine(AppContext.BaseDirectory,"Data");
- Preferences prefs=new(); Clip? selected; bool ready, updating, favorites;
+ Preferences prefs=new(); Clip? selected; bool ready, updating, favorites, audioImportBusy;
  IntPtr handle;
  readonly DispatcherTimer timer=new() { Interval=TimeSpan.FromMilliseconds(60) };
  [DllImport("user32.dll")] static extern bool RegisterHotKey(IntPtr hwnd,int id,uint modifiers,uint key);
@@ -47,7 +47,7 @@ public partial class MainWindow : Window
  public MainWindow()
  {
   InitializeComponent(); Title="OpenPad "+VersionInfo.Current; VersionLabel.Text=VersionInfo.Current; Directory.CreateDirectory(dataDir);
-  prefs=SettingsStore.Load(StatePath);
+  prefs=SettingsStore.Load(StatePath,UpdateService.IsPortable);
   AutoUpdates.IsChecked=prefs.CheckUpdates;
   ApplyLanguage(); Master.Value=prefs.Master; VoiceGain.Value=prefs.VoiceGain; Distort.IsChecked=prefs.Distortion; SharedGain=(float)Master.Value/100;
   Preset.SelectedIndex=0; FillDevices(); ready=true; Render(); Configure(); SettingsChanged(this,new()); if(prefs.Clips.FirstOrDefault() is Clip initial)Select(initial);
@@ -55,11 +55,11 @@ public partial class MainWindow : Window
    Loaded+=(_,_)=>Dispatcher.BeginInvoke(new Action(()=> { var bitmap=new System.Windows.Media.Imaging.RenderTargetBitmap((int)ActualWidth,(int)ActualHeight,96,96,PixelFormats.Pbgra32); bitmap.Render(this); var encoder=new System.Windows.Media.Imaging.PngBitmapEncoder(); encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap)); using(var file=File.Create(capture))encoder.Save(file); Close(); }),DispatcherPriority.ApplicationIdle);
   SourceInitialized+=(_,_)=> { handle=new WindowInteropHelper(this).Handle; HwndSource.FromHwnd(handle).AddHook(Hook); int failed=0; for(int i=0;i<10;i++) if(!RegisterHotKey(handle,100+i,0x4003,(uint)(0x30+i))) failed++; if(failed>0) Status.Text=L10n.F("Не удалось занять горячие клавиши: {0}. Возможно, они используются другой программой.",failed); };
   timer.Tick+=(_,_)=> { Level.Value=engine.Peak; MicLevel.Value=engine.MicPeak; VoiceStatus.Text=L10n.T(engine.VoiceActive?"Голос + звуки → выбранный выход":"Микрофон выключен"); var audioError=Interlocked.Exchange(ref engine.LastError,null); if(audioError!=null)Status.Text=L10n.T("Не удалось воспроизвести: ")+L10n.T(audioError); }; timer.Start();
-  Closing+=(_,e)=> { if(packageBusy) { e.Cancel=true; return; } Save(); timer.Stop(); engine.Dispose(); for(int i=0;i<10;i++) UnregisterHotKey(handle,100+i); };
+  Closing+=(_,e)=> { if(packageBusy || audioImportBusy) { e.Cancel=true; return; } Save(); timer.Stop(); engine.Dispose(); for(int i=0;i<10;i++) UnregisterHotKey(handle,100+i); };
   if(Environment.GetEnvironmentVariable("SOUNDPAD_DATA")==null && Environment.GetEnvironmentVariable("SOUNDPAD_CAPTURE")==null)
    Loaded+=async(_,_)=> { if(!prefs.CheckUpdates)return; try {var release=await new UpdateService().CheckAsync(VersionInfo.Current,UpdateService.IsPortable); if(IsLoaded && release!=null) { UpdatesButton.Content=L10n.F("Обновить до {0}",release.Version); Status.Text=L10n.F("Доступна версия {0}. Библиотека и настройки сохранятся.",release.Version); }} catch { /* Offline startup must remain quiet. Manual check reports errors. */ } };
  }
- internal bool CanApplyUpdate()=>!packageBusy;
+ internal bool CanApplyUpdate()=>!packageBusy && !audioImportBusy;
  internal bool SaveBeforeUpdate()=>Save();
  void OpenUpdates(object sender,RoutedEventArgs e) {new UpdateWindow(this).ShowDialog();}
  void UpdatePreferenceChanged(object sender,RoutedEventArgs e) {if(!ready)return; prefs.CheckUpdates=AutoUpdates.IsChecked==true; Save();}
@@ -78,7 +78,7 @@ public partial class MainWindow : Window
   if(!ready)return false;
   prefs.Master=Master.Value; prefs.VoiceGain=VoiceGain.Value; prefs.Distortion=Distort.IsChecked==true;
   prefs.Output=(Output.SelectedItem as Device)?.Name; prefs.Monitor=(Monitor.SelectedItem as Device)?.Name; prefs.Microphone=(Microphone.SelectedItem as Device)?.Name; prefs.Voice=MicEnabled.IsChecked==true;
-  try { SettingsStore.Save(StatePath,prefs); return true; } catch(Exception ex) { Status.Text=L10n.T("Не удалось сохранить: ")+L10n.T(ex.Message); return false; }
+  try { SettingsStore.Save(StatePath,prefs,UpdateService.IsPortable); return true; } catch(Exception ex) { Status.Text=L10n.T("Не удалось сохранить: ")+L10n.T(ex.Message); return false; }
  }
  void FillDevices()
  {
@@ -135,6 +135,7 @@ public partial class MainWindow : Window
  void FilesDropped(object sender,DragEventArgs e) { if(e.Data.GetData(DataFormats.FileDrop) is string[] files) AddFiles(files); }
  async void AddFiles(IEnumerable<string> files)
  {
+  if(packageBusy || audioImportBusy)return;
   var paths=files.ToList();
   foreach(var path in paths.Where(p=>System.IO.Path.GetExtension(p).Equals(".opl",StringComparison.OrdinalIgnoreCase)))await ImportPackageAsync(path);
   var audio=paths.Where(p=>!System.IO.Path.GetExtension(p).Equals(".opl",StringComparison.OrdinalIgnoreCase)).ToList();
@@ -142,7 +143,14 @@ public partial class MainWindow : Window
   var errors=new List<string>(); int added=0,failed=0; foreach(var file in audio)
   {
    if(prefs.Clips.Any(c=>string.Equals(c.Path,file,StringComparison.OrdinalIgnoreCase)))continue;
-   try { using var probe=AudioDecoder.Open(file); if(probe.WaveFormat.Channels>2)throw new NotSupportedException(); prefs.Clips.Add(new Clip { Path=file,Name=System.IO.Path.GetFileNameWithoutExtension(file) }); added++; } catch(Exception ex) { failed++; errors.Add(System.IO.Path.GetFileName(file)+": "+L10n.T(ex.Message)); }
+   try
+   {
+    using(var probe=AudioDecoder.Open(file))if(probe.WaveFormat.Channels>2)throw new NotSupportedException();
+    string stored=file;
+    if(UpdateService.IsPortable) {audioImportBusy=true; try {stored=await System.Threading.Tasks.Task.Run(()=>PortableStorage.ImportAudio(file,dataDir));} finally {audioImportBusy=false;}}
+    if(prefs.Clips.Any(c=>string.Equals(c.Path,stored,StringComparison.OrdinalIgnoreCase)))continue;
+    prefs.Clips.Add(new Clip { Path=stored,Name=System.IO.Path.GetFileNameWithoutExtension(file) }); added++;
+   } catch(Exception ex) { failed++; errors.Add(System.IO.Path.GetFileName(file)+": "+L10n.T(ex.Message)); }
   }
   if(errors.Count>0)MessageBox.Show(this,string.Join(Environment.NewLine,errors),L10n.T("Не удалось добавить файлы"),MessageBoxButton.OK,MessageBoxImage.Information); Save(); Render(); Status.Text=L10n.F("Добавлено: {0}",added)+(failed>0?L10n.F(" · Не удалось прочитать: {0}",failed):"");
  }

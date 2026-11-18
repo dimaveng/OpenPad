@@ -67,7 +67,7 @@ public partial class MainWindow
     }
     async Task ImportPackageAsync(string path)
     {
-        if(packageBusy)return;
+        if(packageBusy || audioImportBusy)return;
         packageBusy=true; IsEnabled=false; Status.Text=L10n.T("Проверка и импорт .opl…");
         try
         {
@@ -82,6 +82,7 @@ public partial class MainWindow
     }
     async void ExportPackage(object sender,RoutedEventArgs e)
     {
+        if(packageBusy || audioImportBusy)return;
         var clips=prefs.Clips.Where(c=>marked.Count==0||marked.Contains(c)).Select(CopyClip).ToList();
         if(clips.Count==0) { Status.Text=L10n.T("В библиотеке нет звуков для экспорта"); return; }
         var dialog=new SaveFileDialog { Filter="OpenPad Library|*.opl",DefaultExt=".opl",FileName="OpenPad-library.opl" };

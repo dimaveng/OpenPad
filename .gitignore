@@ -17,6 +17,7 @@ language-test.txt
 stability-test.txt
 device-soak-test.txt
 update-test.txt
+portable-test.txt
 *.zip
 *.exe
 *.dll

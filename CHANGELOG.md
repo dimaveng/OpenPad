@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Candidate version 0.7.0-rc.1; installed/released 0.6.0 is unchanged until the next approved release.
+- Opt-out startup checks for stable GitHub Releases, manual check, checksum-verified downloads and confirmed in-app updates with rollback and Data preservation.
+- Self-contained Windows x64 portable ZIP; copied/deduplicated sounds and relative paths for moving the complete folder.
+- Build and verify installer/update/portable assets and publish SHA-256 sums for all distributions.
 - Recover malformed library settings from a last-good backup and preserve damaged originals; normalize invalid clip collections and numeric settings.
 - Remove stopped clips from mixers immediately; clean up readers if input insertion fails.
 - Surface audio callback errors and update microphone activity status.

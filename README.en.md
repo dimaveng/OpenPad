@@ -34,6 +34,14 @@ Run `OpenPad-Setup.exe` and click the install button. OpenPad is embedded in the
 
 OpenPad installs into `%LOCALAPPDATA%\Programs\OpenPad` and adds a Start Menu shortcut. Installing .NET and the driver may require administrator rights. Reinstallation updates application files while preserving `Data`; close OpenPad before updating.
 
+## Portable and updates
+
+Starting with 0.7 builds, `OpenPad-portable-win-x64.zip` includes .NET. Extract the entire ZIP into a writable folder and run `OpenPad.exe`. New sounds are copied into `Data/Sounds`, OPL packages into `Data/Imports`; library/settings use relative internal paths. Close OpenPad before moving the complete folder. Export/import an `.opl` to bring a library from the installed edition.
+
+VB-CABLE is a system driver and needs a one-time installation on each computer for Discord routing. Portable does not install it automatically; the ZIP contains a link and instructions. Existing VB-CABLE installations work with both editions.
+
+Use **Updates** in the sidebar. Startup checks can be disabled. Downloads start on request; installation asks before closing OpenPad, checks length/SHA-256, preserves `Data` and rolls back file-copy failures. Each edition uses its own update ZIP. [Update details](docs/UPDATES.md). The first upgrade from 0.6.0 requires a new installer because that version has no updater.
+
 ## Discord: voice and clips
 
 The interface is available in Ukrainian, English and Russian.
@@ -56,7 +64,7 @@ The Language selector is at the bottom of the left sidebar. Ukrainian, English a
 
 ## Library and data
 
-Settings live in `Data/library.json` next to the application. Audio files are not copied; the library stores their original paths. To migrate, close OpenPad and copy `Data` to the new installation, keeping the audio files accessible.
+Settings live in `Data/library.json` next to the application. The installed edition keeps original audio paths; portable copies new sounds into `Data`. Use `.opl` to move a collection between editions. Copying `Data` for an installed edition still requires access to external audio files.
 
 Personal data, audio files and local verification reports are excluded from the repository and installer. Import failures show the affected filename and reason.
 
