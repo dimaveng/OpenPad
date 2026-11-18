@@ -51,6 +51,12 @@ jobs:
       - name: Installer update and rollback tests
         shell: pwsh
         run: ./tests/Verify-Installer.ps1 -OutputDirectory ./artifacts/installer-verification
+      - name: GitHub updater tests
+        shell: pwsh
+        run: |
+          $p = Start-Process ./artifacts/app/OpenPad.exe -ArgumentList '--update-test' -Wait -PassThru
+          Get-Content update-test.txt
+          if ($p.ExitCode -ne 0) { throw 'Updater tests failed' }
       - name: Build installer
         shell: powershell
         run: ./Installer/Build.ps1
@@ -58,12 +64,13 @@ jobs:
         shell: pwsh
         run: |
           Copy-Item ../OpenPad-Setup.exe artifacts/OpenPad-Setup.exe
+          Copy-Item ../OpenPad-update-win-x64.zip artifacts/OpenPad-update-win-x64.zip
           git archive --format=zip --output=artifacts/OpenPad-source.zip HEAD
           [xml]$project = Get-Content OpenPad.csproj
           $version = $project.Project.PropertyGroup.Version
           $installerVersion = (Get-Item artifacts/OpenPad-Setup.exe).VersionInfo.ProductVersion
           if ($installerVersion -ne $version) { throw "Installer version $installerVersion differs from app $version" }
-          Get-FileHash artifacts/OpenPad-Setup.exe, artifacts/OpenPad-source.zip -Algorithm SHA256 |
+          Get-FileHash artifacts/OpenPad-Setup.exe, artifacts/OpenPad-source.zip, artifacts/OpenPad-update-win-x64.zip -Algorithm SHA256 |
             ForEach-Object { '{0}  {1}' -f $_.Hash.ToLowerInvariant(), (Split-Path $_.Path -Leaf) } |
             Set-Content artifacts/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
@@ -72,6 +79,7 @@ jobs:
           path: |
             artifacts/OpenPad-Setup.exe
             artifacts/OpenPad-source.zip
+            artifacts/OpenPad-update-win-x64.zip
             artifacts/SHA256SUMS.txt
   release:
     needs: build

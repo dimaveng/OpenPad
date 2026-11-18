@@ -29,6 +29,7 @@ public sealed class Preferences
  public string? Microphone {get;set;}
  public bool Voice {get;set;}
  public double VoiceGain {get;set;}=100;
+ public bool CheckUpdates {get;set;}=true;
  public string ViewMode {get;set;}="tiles";
  public string? Language {get;set;}
 }
@@ -47,6 +48,7 @@ public partial class MainWindow : Window
  {
   InitializeComponent(); Title="OpenPad "+VersionInfo.Current; VersionLabel.Text=VersionInfo.Current; Directory.CreateDirectory(dataDir);
   prefs=SettingsStore.Load(StatePath);
+  AutoUpdates.IsChecked=prefs.CheckUpdates;
   ApplyLanguage(); Master.Value=prefs.Master; VoiceGain.Value=prefs.VoiceGain; Distort.IsChecked=prefs.Distortion; SharedGain=(float)Master.Value/100;
   Preset.SelectedIndex=0; FillDevices(); ready=true; Render(); Configure(); SettingsChanged(this,new()); if(prefs.Clips.FirstOrDefault() is Clip initial)Select(initial);
   if(Environment.GetEnvironmentVariable("SOUNDPAD_CAPTURE") is string capture)
@@ -54,7 +56,13 @@ public partial class MainWindow : Window
   SourceInitialized+=(_,_)=> { handle=new WindowInteropHelper(this).Handle; HwndSource.FromHwnd(handle).AddHook(Hook); int failed=0; for(int i=0;i<10;i++) if(!RegisterHotKey(handle,100+i,0x4003,(uint)(0x30+i))) failed++; if(failed>0) Status.Text=L10n.F("Не удалось занять горячие клавиши: {0}. Возможно, они используются другой программой.",failed); };
   timer.Tick+=(_,_)=> { Level.Value=engine.Peak; MicLevel.Value=engine.MicPeak; VoiceStatus.Text=L10n.T(engine.VoiceActive?"Голос + звуки → выбранный выход":"Микрофон выключен"); var audioError=Interlocked.Exchange(ref engine.LastError,null); if(audioError!=null)Status.Text=L10n.T("Не удалось воспроизвести: ")+L10n.T(audioError); }; timer.Start();
   Closing+=(_,e)=> { if(packageBusy) { e.Cancel=true; return; } Save(); timer.Stop(); engine.Dispose(); for(int i=0;i<10;i++) UnregisterHotKey(handle,100+i); };
+  if(Environment.GetEnvironmentVariable("SOUNDPAD_DATA")==null && Environment.GetEnvironmentVariable("SOUNDPAD_CAPTURE")==null)
+   Loaded+=async(_,_)=> { if(!prefs.CheckUpdates)return; try {var release=await new UpdateService().CheckAsync(VersionInfo.Current,UpdateService.IsPortable); if(IsLoaded && release!=null) { UpdatesButton.Content=L10n.F("Обновить до {0}",release.Version); Status.Text=L10n.F("Доступна версия {0}. Библиотека и настройки сохранятся.",release.Version); }} catch { /* Offline startup must remain quiet. Manual check reports errors. */ } };
  }
+ internal bool CanApplyUpdate()=>!packageBusy;
+ internal bool SaveBeforeUpdate()=>Save();
+ void OpenUpdates(object sender,RoutedEventArgs e) {new UpdateWindow(this).ShowDialog();}
+ void UpdatePreferenceChanged(object sender,RoutedEventArgs e) {if(!ready)return; prefs.CheckUpdates=AutoUpdates.IsChecked==true; Save();}
  string StatePath=>System.IO.Path.Combine(dataDir,"library.json");
  void MinimizeWindow(object sender,RoutedEventArgs e)=>SystemCommands.MinimizeWindow(this);
  void MaximizeWindow(object sender,RoutedEventArgs e) { if(WindowState==WindowState.Maximized)SystemCommands.RestoreWindow(this); else SystemCommands.MaximizeWindow(this); }

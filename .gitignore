@@ -16,6 +16,7 @@ opl-test.txt
 language-test.txt
 stability-test.txt
 device-soak-test.txt
+update-test.txt
 *.zip
 *.exe
 *.dll

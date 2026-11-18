@@ -5,6 +5,7 @@ public partial class App : Application
  protected override void OnStartup(StartupEventArgs e)
  {
   DispatcherUnhandledException+=(_,args)=> { System.IO.File.WriteAllText(System.IO.Path.Combine(AppContext.BaseDirectory,"error.log"),args.Exception.ToString()); args.Handled=true; Shutdown(1); };
+  if(e.Args.Contains("--update-test")) { try { System.Threading.Tasks.Task.Run(UpdateSmoke.Run).GetAwaiter().GetResult(); System.IO.File.WriteAllText("update-test.txt","PASS: release versions, stable channel, asset modes/URLs, checksum integrity, cancellation, download and handoff."); Shutdown(0); } catch(Exception ex) {System.IO.File.WriteAllText("update-test.txt",ex.ToString()); Shutdown(1);} return; }
   if(e.Args.Contains("--stability-test")) { try { StabilitySmoke.Run("stability-test.txt"); Shutdown(0); } catch { Shutdown(1); } return; }
   if(e.Args.Contains("--device-soak-test")) { try { StabilitySmoke.DeviceSoak("device-soak-test.txt"); Shutdown(0); } catch { Shutdown(1); } return; }
   if(e.Args.Length==2 && e.Args[0]=="--ui-test") { UiSmoke.Run(this,e.Args[1]); return; }

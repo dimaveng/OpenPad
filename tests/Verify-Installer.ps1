@@ -5,7 +5,7 @@ $root=[IO.Path]::GetFullPath($OutputDirectory)
 New-Item -ItemType Directory -Force -Path $root | Out-Null
 $source=Join-Path $PSScriptRoot '../Installer/Install.ps1'
 $log=[Collections.Generic.List[string]]::new()
-function Run-Case($name,$entries,$expected,$locked=$false) {
+function Run-Case($name,$entries,$expected,$locked=$false,$mode='installer') {
  $case=Join-Path $root $name
  New-Item -ItemType Directory -Force -Path $case | Out-Null
  Copy-Item -LiteralPath $source -Destination (Join-Path $case 'Install.ps1')
@@ -18,9 +18,12 @@ function Run-Case($name,$entries,$expected,$locked=$false) {
  $zip=[IO.Compression.ZipFile]::Open((Join-Path $case 'OpenPad.zip'),'Create')
  try { foreach($entry in $entries.GetEnumerator()) { $e=$zip.CreateEntry($entry.Key); $w=[IO.StreamWriter]::new($e.Open()); try {$w.Write($entry.Value)} finally {$w.Dispose()} } } finally {$zip.Dispose()}
  $lock=$null
+ $arguments=@('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $case 'Install.ps1'),'-Destination',$destination,'-ProgramsDirectory',$programs,'-SkipCable','-NoLaunch')
+ if($mode -ne 'installer'){$arguments+='-Update'}
+ if($mode -eq 'portable'){$arguments+='-Portable'}
  try {
   if($locked) {$lock=[IO.File]::Open((Join-Path $destination 'z-locked.txt'),'Open','ReadWrite','None')}
-  $output=& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $case 'Install.ps1') -Destination $destination -ProgramsDirectory $programs -SkipCable -NoLaunch 2>&1
+  $output=& powershell.exe @arguments 2>&1
   $code=$LASTEXITCODE
  } finally {if($lock){$lock.Dispose()}}
  $output | Set-Content (Join-Path $case 'install-log.txt')
@@ -28,8 +31,9 @@ function Run-Case($name,$entries,$expected,$locked=$false) {
  if((Get-FileHash $library).Hash -ne $hash){throw "$name changed the library"}
  if($expected -eq 0) {
   if([IO.File]::ReadAllText((Join-Path $destination 'OpenPad.exe')) -ne 'new exe'){throw "$name did not update exe"}
-  if(!(Test-Path (Join-Path $programs 'OpenPad.lnk'))){throw "$name did not create shortcut"}
-  $output=& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $case 'Install.ps1') -Destination $destination -ProgramsDirectory $programs -SkipCable -NoLaunch 2>&1
+  if($mode -eq 'installer' -and !(Test-Path (Join-Path $programs 'OpenPad.lnk'))){throw "$name did not create shortcut"}
+  if($mode -ne 'installer' -and (Test-Path $programs)){throw "$name unexpectedly touched Start menu"}
+  $output=& powershell.exe @arguments 2>&1
   if($LASTEXITCODE -ne 0 -or (Get-FileHash $library).Hash -ne $hash){throw 'Reinstall failed or changed Data'}
  } else {
   if([IO.File]::ReadAllText((Join-Path $destination 'OpenPad.exe')) -ne 'old exe'){throw "$name did not preserve/restore exe"}
@@ -42,6 +46,10 @@ Run-Case 'missing-executable' ([ordered]@{'a.txt'='new'}) 1
 Run-Case 'traversal-rejected' ([ordered]@{'OpenPad.exe'='new exe';'../escape.txt'='bad'}) 1
 Run-Case 'data-payload-rejected' ([ordered]@{'OpenPad.exe'='new exe';'Data/library.json'='bad'}) 1
 Run-Case 'locked-file-rollback' ([ordered]@{'OpenPad.exe'='new exe';'z-locked.txt'='new locked'}) 1 $true
+Run-Case 'installed-in-app-update' ([ordered]@{'OpenPad.exe'='new exe';'a.txt'='new'}) 0 $false 'installed'
+Run-Case 'portable-in-app-update' ([ordered]@{'OpenPad.exe'='new exe';'a.txt'='new';'portable.marker'='portable'}) 0 $false 'portable'
+Run-Case 'wrong-mode-rejected' ([ordered]@{'OpenPad.exe'='new exe';'portable.marker'='portable'}) 1 $false 'installed'
+Run-Case 'updater-rollback' ([ordered]@{'OpenPad.exe'='new exe';'z-locked.txt'='new locked'}) 1 $true 'installed'
 $log | Set-Content (Join-Path $root 'results.txt')
 $log
 # Expected installer failures leave LASTEXITCODE=1; report the verified suite result.
